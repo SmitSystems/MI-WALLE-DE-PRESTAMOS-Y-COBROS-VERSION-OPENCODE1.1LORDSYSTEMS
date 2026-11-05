@@ -1,0 +1,2 @@
+# MI-WALLE-DE-PRESTAMOS-Y-COBROS-VERSION-OPENCODE1.1LORDSYSTEMS
+ideal para prestamistas independientes
