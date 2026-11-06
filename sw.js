@@ -2,7 +2,7 @@
    - Guarda la app completa para funcionar sin internet.
    - estado.json NUNCA se guarda en caché: siempre se consulta a la red.
    - Las actualizaciones esperan a que el usuario las acepte. */
-const VERSION = '4.0.1';
+const VERSION = '4.0.3';
 const CACHE = 'prestamos-cobros-' + VERSION;
 const SHELL = [
   './',

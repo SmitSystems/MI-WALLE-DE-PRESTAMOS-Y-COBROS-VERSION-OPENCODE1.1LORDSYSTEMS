@@ -661,7 +661,7 @@ const NEWS = [
   { v: '4.0', date: '2026', title: 'Estado de clientes y ofertas de crédito', items: [
     'Reportes → Estado de clientes: al día, por finalizar, finalizados y en mora.',
     'Estado de cuenta y paz y salvo listos para enviar por WhatsApp o imprimir.',
-    'Botón Ofrecer crédito con mensaje editable, monto sugerido e imagen para compartir.',
+    'Botón Ofrecer crédito para clientes por finalizar y finalizados, con mensaje editable, monto opcional e imagen con el diseño «¡Crédito disponible! / Para usted».',
     'Panel con la tarjeta Clientes al día y aviso de clientes que pueden renovar.'
   ]},
   { v: '3.9', date: '2026', title: 'Nuevo diseño tipo dashboard', items: [
@@ -1233,7 +1233,7 @@ function ultimoPrestamoCliente(c) {
   return prestamosDeCliente(c.id).slice().sort((a, b) => String(b.creado).localeCompare(String(a.creado)))[0] || null;
 }
 function clientesParaOferta() {
-  return S.clientes.filter(c => ['aldia', 'porfinalizar', 'finalizado'].includes(clienteEstado(c)));
+  return S.clientes.filter(c => ['porfinalizar', 'finalizado'].includes(clienteEstado(c)));
 }
 function conteoEstadosClientes() {
   const out = { aldia: 0, porfinalizar: 0, finalizado: 0, mora: 0, sincredito: 0, todos: S.clientes.length };
@@ -1906,7 +1906,7 @@ function viewPanel() {
     const nombres = renovables.slice(0, 3).map(c => esc(String(c.nombre).split(' ')[0])).join(', ');
     html += `<div class="banner mt14" style="border-color:color-mix(in srgb,var(--violet) 26%,var(--line));background:color-mix(in srgb,var(--violet) 6%,var(--surface))">
       <div class="bicon" style="background:color-mix(in srgb,var(--violet) 14%,transparent);color:var(--violet)">${icon('gift', 17)}</div>
-      <div class="grow"><b>${renovables.length} cliente${renovables.length === 1 ? '' : 's'} puede${renovables.length === 1 ? '' : 'n'} renovar su crédito</b> · ${nombres}${renovables.length > 3 ? ' y más' : ''}. Envíales una oferta con el monto disponible.</div>
+      <div class="grow"><b>${renovables.length} cliente${renovables.length === 1 ? '' : 's'} puede${renovables.length === 1 ? '' : 'n'} renovar su crédito</b> · ${nombres}${renovables.length > 3 ? ' y más' : ''}. Envíales una oferta con un mensaje cordial.</div>
       <div class="btn-row">
         <button class="btn sm" data-act="offerCredit">${icon('gift', 14)} Ofrecer crédito</button>
         <button class="btn ghost sm" data-act="verEstados">Ver estados</button>
@@ -2010,7 +2010,7 @@ function clientesCards() {
     const saldo = round2(loans.reduce((a, p) => a + loanTotals(p).saldo, 0));
     const activos = loans.filter(p => loanStatus(p) !== 'finalizado').length;
     const est = clienteEstado(c);
-    const puedeOferta = ['aldia', 'porfinalizar', 'finalizado'].includes(est);
+    const puedeOferta = ['porfinalizar', 'finalizado'].includes(est);
     return `<div class="client-card">
       <div class="client-top">${avatar(c.nombre, 'lg')}<div class="grow" style="min-width:0"><div class="flex gap6 wrap" style="align-items:center"><div class="cname ellipsis">${esc(c.nombre)}</div>${clienteEstadoBadge(est)}</div><div class="cmeta">${c.telefono ? esc(c.telefono) : 'Sin teléfono'}${c.direccion ? ' · ' + esc(c.direccion) : ''}</div></div></div>
       <div class="cnotes">${c.notas ? esc(c.notas) : '<span class="muted">Sin observaciones</span>'}</div>
@@ -2307,7 +2307,7 @@ function estadoClientesLista() {
         <button class="btn ghost sm" data-act="estadoCuenta" data-id="${c.id}">${icon('receipt', 13)} Cuenta</button>
         ${paz ? `<button class="btn ghost sm" data-act="pazSalvo" data-id="${c.id}">${icon('checkCircle', 13)} Paz y salvo</button>` : ''}
         ${c.telefono ? `<button class="icon-btn plain" title="Enviar por WhatsApp" data-act="waEstadoCuenta" data-id="${c.id}">${icon('whatsapp', 16)}</button>` : ''}
-        <button class="btn soft sm" data-act="offerCredit" data-id="${c.id}">${icon('gift', 13)} Ofrecer crédito</button>
+        ${['porfinalizar', 'finalizado'].includes(est) ? `<button class="btn soft sm" data-act="offerCredit" data-id="${c.id}">${icon('gift', 13)} Ofrecer crédito</button>` : ''}
         <button class="btn sm" data-act="newLoan" data-client="${c.id}">${icon('plus', 13)} Nuevo crédito</button>
       </div>
     </div>`;
@@ -2573,7 +2573,7 @@ function clientDetailHTML(c) {
   const loans = prestamosDeCliente(c.id).sort((a, b) => String(b.creado).localeCompare(String(a.creado)));
   const saldo = round2(loans.reduce((a, p) => a + loanTotals(p).saldo, 0));
   const est = clienteEstado(c);
-  const puedeOferta = ['aldia', 'porfinalizar', 'finalizado'].includes(est);
+  const puedeOferta = ['porfinalizar', 'finalizado'].includes(est);
   return `
     <div class="modal-head">
       <div style="display:flex;gap:12px;align-items:center;min-width:0">
@@ -3133,14 +3133,21 @@ function openPazSalvo(id) {
       }
     } });
 }
-function ofertaSugerida(c) {
-  const ult = ultimoPrestamoCliente(c);
-  return ult ? round2(ult.monto) : 0;
-}
+const OFERTA_CIERRE = 'Escríbanos y con gusto le ayudamos. ¡Gracias por su confianza!';
 function ofertaTexto(c, monto) {
-  const neg = S.config.negocio || 'Préstamos y Cobros';
-  const primer = String(c.nombre || '').split(' ')[0];
-  return `Hola ${primer} 👋, le saluda ${neg}. Tenemos un crédito disponible para usted${monto > 0 ? ' por ' + fmtMoney(monto) : ''}. Puede solicitarlo cuando quiera y con gusto le explico las condiciones. ¡Gracias por su confianza!`;
+  const primer = String(c.nombre || '').trim().split(/\s+/)[0] || 'cliente';
+  return `Hola ${primer}, gracias por mantener sus pagos al día. Puede solicitar un nuevo crédito cuando lo necesite.`;
+}
+function ofertaCuerpo(mensaje) {
+  let t = String(mensaje || '').trim();
+  if (t.includes(OFERTA_CIERRE)) t = t.split(OFERTA_CIERRE).join(' ').replace(/\s+/g, ' ').trim();
+  return t;
+}
+function ofertaTextoCompleto(mensaje, monto) {
+  const t = ofertaCuerpo(mensaje);
+  const m = round2(Number(monto) || 0);
+  const montoTxt = m > 0 ? `Monto disponible: ${fmtMoney(m)}` : '';
+  return [t, montoTxt, OFERTA_CIERRE].filter(Boolean).join('\n');
 }
 function registrarOferta(c, monto, mensaje) {
   c.nOf = Math.max(0, Math.round(Number(c.nOf) || 0)) + 1;
@@ -3149,19 +3156,19 @@ function registrarOferta(c, monto, mensaje) {
 }
 function openOfferCredit(clientId) {
   const elegibles = clientesParaOferta();
-  if (!elegibles.length) { toast('Todavía no hay clientes al día, por finalizar o finalizados para ofrecer crédito.', 'warn'); return; }
+  if (!elegibles.length) { toast('Todavía no hay clientes por finalizar o finalizados para ofrecer crédito.', 'warn'); return; }
   const first = (clientId && clienteDe(clientId)) || elegibles[0];
   const options = elegibles.slice();
   if (!options.some(x => x.id === first.id)) options.unshift(first);
-  const monto = ofertaSugerida(first);
+  const monto = 0;
   openModal(`
     <div class="modal-head"><div><h2>Ofrecer crédito</h2><p>Mensaje e imagen listos para enviar</p></div><button class="modal-x" data-act="close">${icon('x', 16)}</button></div>
     <div class="modal-body">
       <div class="grid2 form-grid-mobile">
         <div class="field"><label>Cliente</label><select id="offerClient">${options.map(x => `<option value="${x.id}" ${x.id === first.id ? 'selected' : ''}>${esc(x.nombre)} · ${ESTADOS_CLIENTE[clienteEstado(x)].label}</option>`).join('')}</select></div>
-        <div class="field"><label>Monto disponible (opcional)</label><input type="number" id="offerMonto" min="0" step="0.01" value="${monto || ''}" placeholder="Ej. 500000"><span class="hint">Se sugiere el monto de su último préstamo.</span></div>
+        <div class="field"><label>Monto disponible (opcional)</label><input type="number" id="offerMonto" min="0" step="0.01" value="${monto || ''}" placeholder="Ej. 500000"><span class="hint">Opcional. Si lo escribes, aparece en la imagen y en el mensaje.</span></div>
       </div>
-      <div class="field mt14"><label>Mensaje para el cliente</label><textarea id="offerMsg" rows="4" maxlength="420">${esc(ofertaTexto(first, monto))}</textarea></div>
+      <div class="field mt14"><label>Mensaje para el cliente</label><textarea id="offerMsg" rows="4" maxlength="420">${esc(ofertaTexto(first, monto))}</textarea><span class="hint">El cierre «Escríbanos y con gusto le ayudamos. ¡Gracias por su confianza!» se agrega automáticamente en la imagen y en WhatsApp.</span></div>
       <div class="flex between gap10 wrap mt10">
         <span class="tiny muted" id="offerLast">${first.oferta && first.oferta.fecha ? 'Última oferta: ' + fmtDateTime(first.oferta.fecha) + ' · ' + (first.nOf || 1) + ' enviada(s)' : 'Aún no le has enviado una oferta.'}</span>
         <button class="btn ghost sm" data-act="refreshOffer">${icon('refresh', 14)} Actualizar vista previa</button>
@@ -3191,7 +3198,7 @@ async function renderOfferPreview() {
     const blob = await ofertaBlob(c, monto, msg);
     const url = URL.createObjectURL(blob);
     modalUrls.push(url);
-    window._offerImage = { blob, filename: `oferta-${c.id.slice(0, 6)}.png`, text: msg };
+    window._offerImage = { blob, filename: `oferta-${c.id.slice(0, 6)}.png`, text: ofertaTextoCompleto(msg, monto) };
     if (box) box.innerHTML = `<img src="${url}" alt="Crédito disponible">`;
   } catch (e) {
     console.error(e);
@@ -3204,7 +3211,7 @@ function offerLastText(c) {
 function saveOfferNow() {
   const { c, monto, msg } = offerFormData();
   if (!c) return;
-  registrarOferta(c, monto, msg);
+  registrarOferta(c, monto, ofertaTextoCompleto(msg, monto));
   const last = $('#offerLast');
   if (last) last.textContent = offerLastText(c);
   toast('Oferta registrada en el cliente.', 'good');
@@ -3214,21 +3221,23 @@ async function sendOfferNow() {
   const { c, monto, msg } = offerFormData();
   if (!c) return;
   if (!digits(c.telefono)) { toast('Agrega un teléfono al cliente para enviar WhatsApp.', 'warn'); closeAllModals(); openClientForm(c.id); return; }
-  registrarOferta(c, monto, msg);
+  const completo = ofertaTextoCompleto(msg, monto);
+  registrarOferta(c, monto, completo);
   const last = $('#offerLast');
   if (last) last.textContent = offerLastText(c);
-  window.open(`https://wa.me/${waNumber(c.telefono)}?text=${encodeURIComponent(msg)}`, '_blank', 'noopener');
+  window.open(`https://wa.me/${waNumber(c.telefono)}?text=${encodeURIComponent(completo)}`, '_blank', 'noopener');
   toast('Oferta registrada. Si quieres, adjunta la imagen en WhatsApp.', 'good');
   render();
 }
 async function shareOfferNow() {
   const { c, monto, msg } = offerFormData();
   if (!c) return;
+  const completo = ofertaTextoCompleto(msg, monto);
   const blob = await ofertaBlob(c, monto, msg);
-  registrarOferta(c, monto, msg);
+  registrarOferta(c, monto, completo);
   const last = $('#offerLast');
   if (last) last.textContent = offerLastText(c);
-  await shareBlob(blob, `oferta-${c.id.slice(0, 6)}.png`, msg);
+  await shareBlob(blob, `oferta-${c.id.slice(0, 6)}.png`, completo);
   render();
 }
 async function downloadOfferNow() {
@@ -3727,6 +3736,20 @@ function cWrap(ctx, text, x, y, maxWidth, lineHeight, size, weight, color) {
   if (line) ctx.fillText(line, x, yy);
   return yy;
 }
+function cWrapLines(ctx, text, maxWidth, size, weight) {
+  cFont(ctx, size, weight);
+  const words = String(text ?? '').split(/\s+/).filter(Boolean);
+  const lines = [];
+  let line = '';
+  for (const w of words) {
+    const test = line ? line + ' ' + w : w;
+    if (ctx.measureText(test).width > maxWidth && line) {
+      lines.push(line); line = w;
+    } else line = test;
+  }
+  if (line) lines.push(line);
+  return lines;
+}
 function hexRgb(hex) {
   const m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(String(hex || '2563eb'));
   return m ? [parseInt(m[1], 16), parseInt(m[2], 16), parseInt(m[3], 16)] : [37, 99, 235];
@@ -4096,49 +4119,112 @@ async function pazSalvoBlob(c) {
 
 /* ---------------- Oferta de crédito ---------------- */
 async function ofertaBlob(c, monto, mensaje) {
-  const W = 1080, H = 1350;
+  const W = 1080;
+  const ac = accent();
+  const neg = S.config.negocio || 'Préstamos y Cobros';
+  const texto = (ofertaCuerpo(mensaje || ofertaTexto(c, monto)) || ofertaTexto(c, monto)).slice(0, 420).trim();
+  const amount = round2(Number(monto) || 0);
+  const hasAmount = amount > 0;
+
+  // Medimos el mensaje antes de crear el lienzo para ajustar la altura.
+  const probe = makeCanvas(8, 8).getContext('2d');
+  const bodySize = 27, bodyLine = 46, bodyMax = 820;
+  const lines = cWrapLines(probe, texto, bodyMax, bodySize, 400);
+  const closingLines = cWrapLines(probe, OFERTA_CIERRE, 860, 20, 500);
+
+  const headerH = 300;
+  const titleY = headerH + 120;
+  const paraY = titleY + 112;
+  const dividerY = paraY + 68;
+  const msgStart = dividerY + 62;
+  const msgEnd = msgStart + Math.max(0, lines.length - 1) * bodyLine;
+  const cardX = 90, cardW = W - cardX * 2;
+  const cardY = msgEnd + 76;
+  const cardH = hasAmount ? 176 : 96;
+  const closingStart = cardY + cardH + 50;
+  const closingEnd = closingStart + Math.max(0, closingLines.length - 1) * 32;
+  const footerY = closingEnd + 54;
+  const H = footerY + (S.config.telefono ? 104 : 82);
+
   const cv = makeCanvas(W, H);
   const ctx = cv.getContext('2d');
-  ctx.fillStyle = '#f4f7fb';
+
+  // Fondo blanco, como el ejemplo.
+  ctx.fillStyle = '#ffffff';
   ctx.fillRect(0, 0, W, H);
-  drawImageHeader(ctx, W, 330, 'Crédito disponible', 'Una nueva oportunidad para crecer', 'OFERTA');
+
+  // Cabecera de marca con el color de la app.
+  const grad = ctx.createLinearGradient(0, 0, W, headerH);
+  grad.addColorStop(0, ac);
+  grad.addColorStop(1, shade(ac, 0.55));
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, W, headerH);
+  ctx.fillStyle = 'rgba(255,255,255,.09)';
+  ctx.beginPath(); ctx.arc(W - 80, -60, 250, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = 'rgba(255,255,255,.06)';
+  ctx.beginPath(); ctx.arc(W - 300, headerH + 120, 200, 0, Math.PI * 2); ctx.fill();
+
   const logo = await getLogo();
-  drawLogo(ctx, logo, 72, 38, 50);
-  const m = 72;
+  rr(ctx, 64, 48, 74, 74, 20);
+  ctx.fillStyle = 'rgba(255,255,255,.16)';
+  ctx.fill();
+  drawLogo(ctx, logo, 69, 53, 64);
+  cText(ctx, neg, 158, 76, 37, 800, '#ffffff', 'left', W - 250);
+  cText(ctx, 'Crédito disponible', 160, 118, 21, 500, 'rgba(255,255,255,.84)', 'left', W - 260);
 
-  rr(ctx, m, 372, W - m * 2, 96, 18);
-  ctx.fillStyle = '#fff'; ctx.fill();
-  ctx.strokeStyle = '#e2e8f0'; ctx.lineWidth = 1.5; ctx.stroke();
-  ctx.beginPath(); ctx.arc(m + 48, 420, 31, 0, Math.PI * 2); ctx.fillStyle = accent(); ctx.fill();
-  cText(ctx, initials(c.nombre), m + 48, 421, 23, 800, '#fff', 'center');
-  cText(ctx, c.nombre, m + 96, 403, 26, 700, '#0f172a', 'left', 500);
-  cText(ctx, c.telefono || 'Cliente preferencial', m + 96, 435, 17, 400, '#64748b', 'left', 500);
-  cText(ctx, 'ESTADO', W - m - 24, 403, 12, 700, '#64748b', 'right');
-  cText(ctx, ESTADOS_CLIENTE[clienteEstado(c)].label, W - m - 24, 434, 20, 800, '#0f172a', 'right', 240);
+  // Titulares del ejemplo.
+  cText(ctx, '¡Crédito disponible!', W / 2, titleY, 58, 800, shade(ac, 0.55), 'center', W - 160);
+  ctx.font = "italic 78px Georgia, 'Times New Roman', serif";
+  ctx.fillStyle = ac;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('Para usted', W / 2, paraY);
 
-  rr(ctx, m, 492, W - m * 2, 210, 24);
-  const grad = ctx.createLinearGradient(m, 492, W - m, 702);
-  grad.addColorStop(0, accent());
-  grad.addColorStop(1, shade(accent(), 0.6));
-  ctx.fillStyle = grad; ctx.fill();
-  cText(ctx, 'MONTO DISPONIBLE', m + 38, 546, 16, 800, 'rgba(255,255,255,.8)');
-  cText(ctx, monto > 0 ? fmtMoney(monto) : 'Consultar condiciones', m + 38, 614, monto > 0 ? 62 : 40, 800, '#fff', 'left', W - m * 2 - 76);
-  cText(ctx, 'Sujeto a evaluación y disponibilidad de capital', m + 38, 664, 16, 400, 'rgba(255,255,255,.82)');
+  // Separador fino.
+  ctx.strokeStyle = rgba(ac, 0.32);
+  ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(W / 2 - 150, dividerY); ctx.lineTo(W / 2 - 26, dividerY); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(W / 2 + 26, dividerY); ctx.lineTo(W / 2 + 150, dividerY); ctx.stroke();
+  ctx.beginPath(); ctx.arc(W / 2, dividerY, 6, 0, Math.PI * 2); ctx.fillStyle = ac; ctx.fill();
 
-  cText(ctx, 'MENSAJE', m, 760, 15, 800, '#334155');
-  rr(ctx, m, 784, W - m * 2, 300, 20);
-  ctx.fillStyle = '#ffffff'; ctx.fill();
-  ctx.strokeStyle = '#e2e8f0'; ctx.lineWidth = 1.5; ctx.stroke();
-  const texto = String(mensaje || '').slice(0, 420);
-  cWrap(ctx, texto, m + 30, 826, W - m * 2 - 60, 34, 21, 400, '#334155');
+  // Mensaje personalizado, centrado.
+  cFont(ctx, bodySize, 400);
+  ctx.fillStyle = '#334155';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  lines.forEach((line, i) => ctx.fillText(line, W / 2, msgStart + i * bodyLine));
 
-  const fy = H - 170;
-  ctx.strokeStyle = '#e2e8f0';
-  ctx.beginPath(); ctx.moveTo(m, fy); ctx.lineTo(W - m, fy); ctx.stroke();
-  cText(ctx, S.config.negocio || 'Préstamos y Cobros', m, fy + 40, 24, 800, '#0f172a', 'left', W - 420);
-  cText(ctx, S.config.telefono ? 'WhatsApp / Contacto: ' + S.config.telefono : 'Escríbenos para más información', m, fy + 72, 16, 400, '#64748b', 'left', W - 420);
-  cText(ctx, `Oferta generada el ${fmtDate(todayISO())}`, W - m, fy + 40, 15, 600, '#334155', 'right', 360);
-  cText(ctx, 'Préstamos y Cobros', W - m, fy + 72, 13, 400, '#94a3b8', 'right', 360);
+  // Fila del cliente (y monto opcional).
+  rr(ctx, cardX, cardY, cardW, cardH, 24);
+  ctx.fillStyle = '#f8fafc';
+  ctx.fill();
+  ctx.strokeStyle = '#e6edf6';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+  cText(ctx, 'Cliente', cardX + 40, cardY + 48, 18, 600, '#64748b');
+  cText(ctx, c.nombre, W - cardX - 40, cardY + 48, 28, 700, '#0f172a', 'right', cardW - 250);
+  if (hasAmount) {
+    ctx.strokeStyle = '#e6edf6';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(cardX + 40, cardY + 96); ctx.lineTo(W - cardX - 40, cardY + 96); ctx.stroke();
+    cText(ctx, 'Monto disponible', cardX + 40, cardY + 136, 18, 600, '#64748b');
+    cText(ctx, fmtMoney(amount), W - cardX - 40, cardY + 136, 28, 800, shade(ac, 0.62), 'right', cardW - 280);
+  }
+
+  // Cierre del ejemplo, después de la fila del cliente.
+  cFont(ctx, 20, 500);
+  ctx.fillStyle = '#64748b';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  closingLines.forEach((line, i) => ctx.fillText(line, W / 2, closingStart + i * 32));
+
+  // Pie con marca y fecha, como el ejemplo.
+  ctx.strokeStyle = '#e6edf6';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.moveTo(cardX, footerY); ctx.lineTo(W - cardX, footerY); ctx.stroke();
+  cText(ctx, `${neg} · ${fmtDateLong(todayISO())}`, W / 2, footerY + 38, 16, 600, '#94a3b8', 'center', W - 200);
+  if (S.config.telefono) cText(ctx, 'WhatsApp ' + S.config.telefono, W / 2, footerY + 68, 15, 400, '#b0bccb', 'center', W - 200);
+
   return canvasBlob(cv);
 }
 function fmtDatetimeShort() {
@@ -4604,7 +4690,7 @@ function initEvents() {
     if (el.id === 'offerClient') {
       const c = clienteDe(el.value);
       if (c) {
-        const monto = ofertaSugerida(c);
+        const monto = 0;
         const mi = $('#offerMonto'); if (mi) mi.value = monto || '';
         const msg = $('#offerMsg'); if (msg) msg.value = ofertaTexto(c, monto);
         const last = $('#offerLast'); if (last) last.textContent = offerLastText(c);

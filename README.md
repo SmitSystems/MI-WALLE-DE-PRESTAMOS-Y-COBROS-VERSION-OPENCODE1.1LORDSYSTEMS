@@ -118,7 +118,7 @@ En **Reportes → Estado de clientes** los clientes se clasifican automáticamen
 Desde cada cliente puedes generar un **estado de cuenta** o un **paz y salvo** como imagen para enviar por WhatsApp, descargar o imprimir. También hay un atajo **Nuevo crédito** para renovar.
 
 ### Ofertas de crédito
-El botón **🎁 Ofrecer crédito** (en Panel, Reportes y Clientes) permite enviar un mensaje cordial editable a clientes al día, por finalizar o finalizados, con un monto disponible opcional (sugiere el valor del último préstamo) y una imagen **«Crédito disponible»** para compartir. La app guarda la fecha y el monto de la última oferta enviada en la ficha del cliente.
+El botón **🎁 Ofrecer crédito** (en Panel, Reportes y Clientes) permite enviar un mensaje cordial editable **solo a clientes por finalizar y finalizados**. La imagen sigue el diseño del ejemplo: cabecera de marca, **«¡Crédito disponible!»**, **«Para usted»**, mensaje personalizado, fila del cliente, monto disponible opcional y cierre cordial con la fecha. El monto empieza vacío y es libre: si no lo escribes, la imagen queda como el ejemplo; si lo escribes, aparece en la imagen y en el mensaje de WhatsApp. El cierre se agrega automáticamente al texto de WhatsApp. La app guarda la fecha y el monto de la última oferta enviada en la ficha del cliente.
 
 ### Seguridad
 - Puedes activar una **contraseña** y una **huella / Face ID** (WebAuthn) para bloquear la entrada.
@@ -160,7 +160,7 @@ Para cambiar el estado: edita `estado.json` directamente en GitHub (lápiz ✏�
 ## 6. Actualizar la app más adelante
 
 1. Reemplaza `index.html` (y los demás archivos modificados) en el repositorio.
-2. Si cambiaste archivos guardados en caché, sube también `sw.js` con un número de versión mayor, por ejemplo `4.0.0` → `4.0.1` (línea `const VERSION`).
+2. Si cambiaste archivos guardados en caché, sube también `sw.js` con un número de versión mayor, por ejemplo `4.0.1` → `4.0.2` (línea `const VERSION`).
 3. La app mostrará un aviso de **actualización disponible**; el usuario pulsa **Actualizar**.
 4. Si no aparece el aviso, cierra y vuelve a abrir la app, o en el navegador: **Configuración → Borrar datos de sitio** (esto borra también los datos locales: haz respaldo antes).
 
@@ -184,7 +184,7 @@ Para cambiar el estado: edita `estado.json` directamente en GitHub (lápiz ✏�
 
 - Sin frameworks, sin compilación, sin dependencias externas: un solo `index.html`.
 - Almacenamiento: `localStorage`, clave `prestamos_v1`, versión de datos `4`, versión de app `4.0`.
-- Service Worker con caché `prestamos-cobros-4.0.1`; `estado.json` siempre va a la red (`cache: no-store`).
+- Service Worker con caché `prestamos-cobros-4.0.3`; `estado.json` siempre va a la red (`cache: no-store`).
 - Contraseña guardada como hash SHA-256 con sal; WebAuthn se usa como puerta de acceso local (no hay verificación en servidor).
 - Los importes se manejan en pesos; el formato es configurable en Ajustes.
 
