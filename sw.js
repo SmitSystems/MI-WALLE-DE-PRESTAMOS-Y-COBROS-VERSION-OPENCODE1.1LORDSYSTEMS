@@ -1,8 +1,8 @@
-/* Préstamos y Cobros 3.9 — Service Worker
+/* Préstamos y Cobros 4.0 — Service Worker
    - Guarda la app completa para funcionar sin internet.
    - estado.json NUNCA se guarda en caché: siempre se consulta a la red.
    - Las actualizaciones esperan a que el usuario las acepte. */
-const VERSION = '3.9.0';
+const VERSION = '4.0.1';
 const CACHE = 'prestamos-cobros-' + VERSION;
 const SHELL = [
   './',
@@ -63,7 +63,7 @@ self.addEventListener('fetch', event => {
     return;
   }
 
-  // Navegación: red primero y, si falla, la copia offline.
+  // Navegación: red primero y, si falla o responde con error, la copia offline.
   if (req.mode === 'navigate') {
     event.respondWith((async () => {
       try {
@@ -71,8 +71,10 @@ self.addEventListener('fetch', event => {
         if (res && res.ok) {
           const cache = await caches.open(CACHE);
           cache.put('./index.html', res.clone());
+          return res;
         }
-        return res;
+        const cached = (await caches.match('./index.html')) || (await caches.match('./'));
+        return cached || res;
       } catch (e) {
         return (await caches.match('./index.html')) || (await caches.match('./')) || Response.error();
       }

@@ -1,4 +1,4 @@
-# Préstamos y Cobros 3.9
+# Préstamos y Cobros 4.0
 
 Aplicación web **offline** (PWA) para administrar clientes, préstamos, cuotas, cobros y capital.
 Funciona sin internet, se instala en el teléfono o la computadora y guarda **todos los datos solo en el dispositivo** (no hay servidor ni base de datos externa).
@@ -41,7 +41,7 @@ Todos los archivos deben quedar **sueltos en la raíz** del repositorio (sin car
 1. En el repositorio recién creado pulsa **uploading an existing file** (o **Add file → Upload files**).
 2. Descomprime el ZIP en tu computadora.
 3. Arrastra **todos los archivos descomprimidos** a la página (no la carpeta, solo los archivos).
-4. Abajo escribe el mensaje `Versión 3.9` y pulsa **Commit changes**.
+4. Abajo escribe el mensaje `Versión 4.0` y pulsa **Commit changes**.
 5. Verifica que en la lista aparezcan `index.html`, `sw.js`, `manifest.webmanifest`, `estado.json` y los íconos.
 
 **Opción 2: desde la app de escritorio de GitHub**
@@ -107,6 +107,19 @@ La primera vez que abras la app con internet se guarda una copia completa; despu
 6. **Capital**: registra aportes y retiros para saber cuánto dinero tienes disponible.
 7. **Ajustes**: contraseña, huella / Face ID, tema claro-oscuro, recordatorios, respaldos, exportar/importar.
 
+### Estado de clientes
+En **Reportes → Estado de clientes** los clientes se clasifican automáticamente con los datos ya registrados:
+
+- **Al día**: tiene crédito activo y ninguna cuota vencida.
+- **Por finalizar**: le quedan pocas cuotas (por defecto 2; se ajusta en Ajustes o en la misma pantalla).
+- **Finalizados**: ya pagó todos sus créditos.
+- **En mora**: tiene cuotas vencidas o mora pendiente.
+
+Desde cada cliente puedes generar un **estado de cuenta** o un **paz y salvo** como imagen para enviar por WhatsApp, descargar o imprimir. También hay un atajo **Nuevo crédito** para renovar.
+
+### Ofertas de crédito
+El botón **🎁 Ofrecer crédito** (en Panel, Reportes y Clientes) permite enviar un mensaje cordial editable a clientes al día, por finalizar o finalizados, con un monto disponible opcional (sugiere el valor del último préstamo) y una imagen **«Crédito disponible»** para compartir. La app guarda la fecha y el monto de la última oferta enviada en la ficha del cliente.
+
 ### Seguridad
 - Puedes activar una **contraseña** y una **huella / Face ID** (WebAuthn) para bloquear la entrada.
 - Al crear la contraseña se muestra un **código de recuperación**: guárdalo. Sin él, si olvidas la contraseña, solo queda borrar los datos del navegador.
@@ -147,7 +160,7 @@ Para cambiar el estado: edita `estado.json` directamente en GitHub (lápiz ✏�
 ## 6. Actualizar la app más adelante
 
 1. Reemplaza `index.html` (y los demás archivos modificados) en el repositorio.
-2. Si cambiaste archivos guardados en caché, sube también `sw.js` con un número de versión mayor, por ejemplo `3.9.0` → `3.9.1` (línea `const VERSION`).
+2. Si cambiaste archivos guardados en caché, sube también `sw.js` con un número de versión mayor, por ejemplo `4.0.0` → `4.0.1` (línea `const VERSION`).
 3. La app mostrará un aviso de **actualización disponible**; el usuario pulsa **Actualizar**.
 4. Si no aparece el aviso, cierra y vuelve a abrir la app, o en el navegador: **Configuración → Borrar datos de sitio** (esto borra también los datos locales: haz respaldo antes).
 
@@ -170,8 +183,8 @@ Para cambiar el estado: edita `estado.json` directamente en GitHub (lápiz ✏�
 ## 8. Notas técnicas
 
 - Sin frameworks, sin compilación, sin dependencias externas: un solo `index.html`.
-- Almacenamiento: `localStorage`, clave `prestamos_v1`, versión de datos `4`, versión de app `3.9`.
-- Service Worker con caché `prestamos-cobros-3.9.0`; `estado.json` siempre va a la red (`cache: no-store`).
+- Almacenamiento: `localStorage`, clave `prestamos_v1`, versión de datos `4`, versión de app `4.0`.
+- Service Worker con caché `prestamos-cobros-4.0.1`; `estado.json` siempre va a la red (`cache: no-store`).
 - Contraseña guardada como hash SHA-256 con sal; WebAuthn se usa como puerta de acceso local (no hay verificación en servidor).
 - Los importes se manejan en pesos; el formato es configurable en Ajustes.
 

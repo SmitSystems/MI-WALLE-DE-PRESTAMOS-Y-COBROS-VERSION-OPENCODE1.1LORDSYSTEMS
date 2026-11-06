@@ -233,6 +233,18 @@ input::placeholder,textarea::placeholder{color:var(--muted-2)}
 .progress>i{display:block;height:100%;border-radius:10px;background:linear-gradient(90deg,var(--accent),color-mix(in srgb,var(--accent) 60%,var(--green)));transition:width .4s}
 .progress.green>i{background:var(--green)}
 .progress.thin{height:5px}
+
+/* ---------- Estado de clientes ---------- */
+.ec-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.ec-card{text-align:left;border:1px solid var(--line);background:var(--surface);border-radius:12px;padding:12px 13px;display:flex;flex-direction:column;gap:3px;transition:.15s}
+.ec-card:hover{border-color:color-mix(in srgb,var(--accent) 35%,var(--line));transform:translateY(-1px)}
+.ec-card.active{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 6%,var(--surface));box-shadow:0 0 0 1px color-mix(in srgb,var(--accent) 35%,transparent)}
+.ec-l{font-size:10.5px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--muted)}
+.ec-n{font-size:24px;font-weight:800;letter-spacing:-.04em;line-height:1.1}
+.ec-item{display:flex;align-items:center;gap:12px;padding:12px 0;border-top:1px solid var(--line-2);flex-wrap:wrap}
+.ec-item:first-child{border-top:0;padding-top:0}
+.ec-item:last-child{padding-bottom:0}
+.ec-actions{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-left:auto}
 .alert-strip{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:9px;background:color-mix(in srgb,var(--red) 8%,transparent);color:var(--red);font-size:11.5px;font-weight:700}
 
 /* ---------- Client / loan cards ---------- */
@@ -438,6 +450,9 @@ tfoot td{font-weight:800;background:var(--surface-2);border-top:1px solid var(--
   .loan-card{padding:13px}
   .dash-grid{gap:11px}
   .search-box{max-width:none;flex:1}
+  .ec-grid{grid-template-columns:repeat(2,1fr)!important}
+  .ec-actions{width:100%;margin-left:0}
+  .ec-actions .btn{flex:1;min-width:0}
   .mobile-only{display:inline-grid!important}
   table{min-width:520px}
   .set-card{padding:15px}
@@ -525,7 +540,7 @@ tfoot td{font-weight:800;background:var(--surface-2);border-top:1px solid var(--
         <p id="sideCardText">Tus datos viven solo en este dispositivo.</p>
         <button class="btn soft sm block" data-act="export"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg> Respaldar ahora</button>
       </div>
-      <div class="ver-row"><span>Versión <b id="sideVer">3.9</b></span><button class="link-btn" data-act="showNews">Novedades</button></div>
+      <div class="ver-row"><span>Versión <b id="sideVer">4.0</b></span><button class="link-btn" data-act="showNews">Novedades</button></div>
     </div>
   </aside>
 
@@ -626,12 +641,12 @@ tfoot td{font-weight:800;background:var(--surface-2);border-top:1px solid var(--
 <script>
 'use strict';
 /* ============================================================
-   PRÉSTAMOS Y COBROS 3.9
+   PRÉSTAMOS Y COBROS 4.0
    Aplicación local. Todos los datos se guardan en localStorage.
    ============================================================ */
 const KEY = 'prestamos_v1';
 const VER = 4;
-const APPV = '3.9';
+const APPV = '4.0';
 const DEFAULT_WSP = 'Hola {cliente}, le recuerdo su cuota de {valor} del préstamo {codigo} con vencimiento el {fecha}. Saldo pendiente: {saldo}. ¡Gracias!';
 const COLORS = [
   { id: 'blue', value: '#2563eb', name: 'Azul' },
@@ -643,6 +658,12 @@ const COLORS = [
   { id: 'indigo', value: '#4f46e5', name: 'Índigo' }
 ];
 const NEWS = [
+  { v: '4.0', date: '2026', title: 'Estado de clientes y ofertas de crédito', items: [
+    'Reportes → Estado de clientes: al día, por finalizar, finalizados y en mora.',
+    'Estado de cuenta y paz y salvo listos para enviar por WhatsApp o imprimir.',
+    'Botón Ofrecer crédito con mensaje editable, monto sugerido e imagen para compartir.',
+    'Panel con la tarjeta Clientes al día y aviso de clientes que pueden renovar.'
+  ]},
   { v: '3.9', date: '2026', title: 'Nuevo diseño tipo dashboard', items: [
     'Menú lateral con iconos en escritorio y barra inferior en el móvil.',
     'Tema claro con fondo blanco y tema oscuro más profundo, casi negro.',
@@ -838,6 +859,7 @@ function freshState() {
       huellaAuto: true,
       notif: false,
       wsp: DEFAULT_WSP,
+      finN: 2,
       soporte: '',
       installHidden: false,
       seenNews: '',
@@ -864,7 +886,13 @@ function migrate(d) {
     telefono: String(c.telefono || ''),
     direccion: String(c.direccion || ''),
     notas: String(c.notas || ''),
-    creado: c.creado || nowISO()
+    creado: c.creado || nowISO(),
+    oferta: (c.oferta && typeof c.oferta === 'object') ? {
+      fecha: String(c.oferta.fecha || ''),
+      monto: round2(Number(c.oferta.monto) || 0),
+      mensaje: String(c.oferta.mensaje || '')
+    } : null,
+    nOf: Math.max(0, Math.round(Number(c.nOf) || 0))
   }));
   let maxCode = 0;
   d.prestamos.forEach(p => {
@@ -1164,6 +1192,53 @@ function statusBadge(status) {
   };
   const x = m[status] || ['gray', status];
   return `<span class="badge ${x[0]}">${x[1]}</span>`;
+}
+
+/* ---------------- Estado de clientes (derivado) ---------------- */
+const ESTADOS_CLIENTE = {
+  aldia: { label: 'Al día', color: 'green', icon: 'checkCircle' },
+  porfinalizar: { label: 'Por finalizar', color: 'amber', icon: 'clock' },
+  finalizado: { label: 'Finalizado', color: 'violet', icon: 'check' },
+  mora: { label: 'En mora', color: 'red', icon: 'alert' },
+  sincredito: { label: 'Sin crédito', color: 'gray', icon: 'user' }
+};
+function finN() { return Math.max(1, Math.min(24, Math.round(Number(S.config.finN) || 2))); }
+function cuotasPendientes(loan) { return loan.cuotas.filter(c => c.pagado < c.valor - 0.005).length; }
+function clienteEstado(c) {
+  const loans = prestamosDeCliente(c.id);
+  if (!loans.length) return 'sincredito';
+  const abiertos = loans.filter(p => loanStatus(p) !== 'finalizado');
+  if (!abiertos.length) return 'finalizado';
+  const enMora = abiertos.some(p => loanTotals(p).mora > 0.005 || p.cuotas.some(cu => cuotaEstado(p, cu) === 'atrasada'));
+  if (enMora) return 'mora';
+  const restantes = Math.min.apply(null, abiertos.map(cuotasPendientes));
+  return restantes <= finN() ? 'porfinalizar' : 'aldia';
+}
+function clienteEstadoBadge(est) {
+  const x = ESTADOS_CLIENTE[est] || ESTADOS_CLIENTE.sincredito;
+  return `<span class="badge ${x.color}">${x.label}</span>`;
+}
+function resumenCliente(c) {
+  const loans = prestamosDeCliente(c.id);
+  const activos = loans.filter(p => loanStatus(p) !== 'finalizado');
+  const saldo = round2(loans.reduce((a, p) => a + loanTotals(p).saldo, 0));
+  const mora = round2(activos.reduce((a, p) => a + loanTotals(p).mora, 0));
+  const prestado = round2(loans.reduce((a, p) => a + p.monto, 0));
+  const pagado = round2(loans.reduce((a, p) => a + loanTotals(p).pagado, 0));
+  const prox = activos.map(nextCuota).filter(Boolean).sort((a, b) => String(a.fecha).localeCompare(String(b.fecha)))[0] || null;
+  const restantes = activos.length ? Math.min.apply(null, activos.map(cuotasPendientes)) : 0;
+  return { loans, activos, saldo, mora, prestado, pagado, prox, restantes };
+}
+function ultimoPrestamoCliente(c) {
+  return prestamosDeCliente(c.id).slice().sort((a, b) => String(b.creado).localeCompare(String(a.creado)))[0] || null;
+}
+function clientesParaOferta() {
+  return S.clientes.filter(c => ['aldia', 'porfinalizar', 'finalizado'].includes(clienteEstado(c)));
+}
+function conteoEstadosClientes() {
+  const out = { aldia: 0, porfinalizar: 0, finalizado: 0, mora: 0, sincredito: 0, todos: S.clientes.length };
+  S.clientes.forEach(c => { out[clienteEstado(c)]++; });
+  return out;
 }
 function capitalStats() {
   const aportes = round2(S.movimientos.filter(m => m.tipo === 'aporte').reduce((a, m) => a + m.monto, 0));
@@ -1675,7 +1750,10 @@ const filters = {
   loansQ: '',
   loanFilter: 'activos',
   periodo: 'mes',
-  movFilter: 'todos'
+  movFilter: 'todos',
+  reportTab: 'cobros',
+  estadoClientes: 'todos',
+  estadoQ: ''
 };
 
 function render() {
@@ -1769,6 +1847,9 @@ function viewPanel() {
   const cs = capitalStats();
   const tg = totalesGlobales();
   const over = overdueCuotas();
+  const est = conteoEstadosClientes();
+  const renovables = clientesParaOferta();
+  const pctAldia = S.clientes.length ? Math.round(est.aldia / S.clientes.length * 100) : 0;
   const up = upcomingCuotas(7);
   const overTotal = round2(over.reduce((a, x) => a + x.amount + x.mora, 0));
   const series = collectionsSeries(6);
@@ -1821,6 +1902,18 @@ function viewPanel() {
     </div>`;
   }
 
+  if (renovables.length) {
+    const nombres = renovables.slice(0, 3).map(c => esc(String(c.nombre).split(' ')[0])).join(', ');
+    html += `<div class="banner mt14" style="border-color:color-mix(in srgb,var(--violet) 26%,var(--line));background:color-mix(in srgb,var(--violet) 6%,var(--surface))">
+      <div class="bicon" style="background:color-mix(in srgb,var(--violet) 14%,transparent);color:var(--violet)">${icon('gift', 17)}</div>
+      <div class="grow"><b>${renovables.length} cliente${renovables.length === 1 ? '' : 's'} puede${renovables.length === 1 ? '' : 'n'} renovar su crédito</b> · ${nombres}${renovables.length > 3 ? ' y más' : ''}. Envíales una oferta con el monto disponible.</div>
+      <div class="btn-row">
+        <button class="btn sm" data-act="offerCredit">${icon('gift', 14)} Ofrecer crédito</button>
+        <button class="btn ghost sm" data-act="verEstados">Ver estados</button>
+      </div>
+    </div>`;
+  }
+
   html += `<div class="dash-grid">
     <div class="stack">
       <div class="card">
@@ -1854,6 +1947,23 @@ function viewPanel() {
             <div class="bar" style="height:${Math.max(3, Math.round(s.total / maxSerie * 100))}%;background:${s.key === hoy.slice(0, 7) ? 'var(--accent)' : 'color-mix(in srgb,var(--accent) 45%,var(--line))'}"></div>
             <span>${s.label}</span>
           </div>`).join('')}
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-h"><div><h3>Clientes al día</h3><p>Sin cuotas vencidas ni mora</p></div><span class="badge green no-dot">${pctAldia}%</span></div>
+        <div class="flex between gap14" style="align-items:flex-end">
+          <div><div style="font-size:36px;font-weight:800;letter-spacing:-.04em;line-height:1">${est.aldia}</div><div class="tiny muted mt6">de ${S.clientes.length} cliente${S.clientes.length === 1 ? '' : 's'}</div></div>
+          <div class="grow" style="text-align:right;min-width:120px">
+            <div class="progress green"><i style="width:${pctAldia}%"></i></div>
+            <div class="tiny muted mt6">${est.mora} en mora · ${est.porfinalizar} por finalizar</div>
+          </div>
+        </div>
+        <div class="ec-grid mt14" style="grid-template-columns:repeat(2,1fr)">
+          ${[['aldia', 'Al día', 'green'], ['porfinalizar', 'Por finalizar', 'amber'], ['finalizado', 'Finalizados', 'violet'], ['mora', 'En mora', 'red']].map(([k, l, col]) => `<button class="ec-card" data-act="estadoFiltro" data-v="${k}"><div class="ec-l">${l}</div><div class="ec-n" style="color:var(--${col})">${est[k]}</div></button>`).join('')}
+        </div>
+        <div class="btn-row mt14">
+          <button class="btn soft sm" data-act="offerCredit">${icon('gift', 14)} Ofrecer crédito</button>
+          <button class="btn ghost sm" data-act="verEstados">${icon('users', 14)} Estado de clientes</button>
         </div>
       </div>
       <div class="card">
@@ -1899,8 +2009,10 @@ function clientesCards() {
     const loans = prestamosDeCliente(c.id);
     const saldo = round2(loans.reduce((a, p) => a + loanTotals(p).saldo, 0));
     const activos = loans.filter(p => loanStatus(p) !== 'finalizado').length;
+    const est = clienteEstado(c);
+    const puedeOferta = ['aldia', 'porfinalizar', 'finalizado'].includes(est);
     return `<div class="client-card">
-      <div class="client-top">${avatar(c.nombre, 'lg')}<div class="grow" style="min-width:0"><div class="cname ellipsis">${esc(c.nombre)}</div><div class="cmeta">${c.telefono ? esc(c.telefono) : 'Sin teléfono'}${c.direccion ? ' · ' + esc(c.direccion) : ''}</div></div></div>
+      <div class="client-top">${avatar(c.nombre, 'lg')}<div class="grow" style="min-width:0"><div class="flex gap6 wrap" style="align-items:center"><div class="cname ellipsis">${esc(c.nombre)}</div>${clienteEstadoBadge(est)}</div><div class="cmeta">${c.telefono ? esc(c.telefono) : 'Sin teléfono'}${c.direccion ? ' · ' + esc(c.direccion) : ''}</div></div></div>
       <div class="cnotes">${c.notas ? esc(c.notas) : '<span class="muted">Sin observaciones</span>'}</div>
       <div class="cstats">
         <div><span>Préstamos</span><b>${loans.length}${activos ? ` · ${activos} activo${activos === 1 ? '' : 's'}` : ''}</b></div>
@@ -1909,6 +2021,7 @@ function clientesCards() {
       <div class="loan-actions">
         <button class="btn ghost sm" data-act="viewClient" data-id="${c.id}">${icon('eye', 14)} Ver</button>
         <button class="btn soft sm" data-act="newLoan" data-client="${c.id}">${icon('plus', 14)} Prestar</button>
+        ${puedeOferta ? `<button class="icon-btn plain" title="Ofrecer crédito" data-act="offerCredit" data-id="${c.id}">${icon('gift', 16)}</button>` : ''}
         ${c.telefono ? `<button class="icon-btn plain" title="WhatsApp" data-act="waClient" data-id="${c.id}">${icon('whatsapp', 16)}</button>` : ''}
         <button class="icon-btn plain" title="Editar" data-act="editClient" data-id="${c.id}">${icon('edit', 16)}</button>
         <button class="icon-btn plain danger" title="Eliminar" data-act="delClient" data-id="${c.id}">${icon('trash', 16)}</button>
@@ -2085,6 +2198,15 @@ function reportData() {
   return { range: r, pagos, capital: round2(capital), interes: round2(interes), mora: round2(mora), total: round2(total), nuevos, prestado: round2(nuevos.reduce((a, p) => a + p.monto, 0)) };
 }
 function viewReportes() {
+  const tabs = `<div class="flex between gap10 wrap" style="margin-bottom:13px">
+      <div class="segmented">
+        <button class="${filters.reportTab === 'cobros' ? 'active' : ''}" data-act="reportTab" data-v="cobros">Cobros del periodo</button>
+        <button class="${filters.reportTab === 'clientes' ? 'active' : ''}" data-act="reportTab" data-v="clientes">Estado de clientes</button>
+      </div>
+    </div>`;
+  return tabs + (filters.reportTab === 'clientes' ? viewEstadoClientes() : viewReporteCobros());
+}
+function viewReporteCobros() {
   const d = reportData();
   const series = collectionsSeries(6);
   const maxSerie = Math.max(1, ...series.map(s => s.total));
@@ -2156,6 +2278,82 @@ function viewReportes() {
       </div>
     </div>`;
 }
+/* ---------------- Estado de clientes ---------------- */
+function filteredEstadoClientes() {
+  const q = filters.estadoQ.trim().toLowerCase();
+  let arr = S.clientes.slice();
+  if (filters.estadoClientes !== 'todos') arr = arr.filter(c => clienteEstado(c) === filters.estadoClientes);
+  if (q) arr = arr.filter(c => `${c.nombre} ${c.telefono} ${c.direccion} ${c.notas}`.toLowerCase().includes(q));
+  const rank = { mora: 0, porfinalizar: 1, aldia: 2, finalizado: 3, sincredito: 4 };
+  return arr.sort((a, b) => (rank[clienteEstado(a)] - rank[clienteEstado(b)]) || a.nombre.localeCompare(b.nombre));
+}
+function estadoClientesLista() {
+  const arr = filteredEstadoClientes();
+  if (!arr.length) {
+    return emptyState('users', 'Sin clientes en este estado', filters.estadoQ ? 'No encontramos clientes con esa búsqueda.' : 'Prueba con otro estado o registra un cliente nuevo.');
+  }
+  return `<div class="list">${arr.map(c => {
+    const r = resumenCliente(c);
+    const est = clienteEstado(c);
+    const paz = r.saldo <= 0.005 && r.mora <= 0.005;
+    return `<div class="ec-item">
+      ${avatar(c.nombre, 'sm')}
+      <div class="grow" style="min-width:160px">
+        <div class="flex gap6 wrap" style="align-items:center"><b style="font-size:12.5px">${esc(c.nombre)}</b>${clienteEstadoBadge(est)}</div>
+        <div class="tiny muted mt6">${r.loans.length} préstamo${r.loans.length === 1 ? '' : 's'} · ${paz ? 'sin deuda' : 'saldo ' + fmtMoney(r.saldo)}${r.mora > 0 ? ' · mora ' + fmtMoney(r.mora) : ''}${r.prox ? ' · próximo ' + fmtDateShort(r.prox.fecha) : ''}${c.oferta && c.oferta.fecha ? ' · oferta ' + fmtDateShort(c.oferta.fecha) : ''}</div>
+      </div>
+      <div class="ec-actions">
+        <button class="btn ghost sm" data-act="viewClient" data-id="${c.id}">${icon('eye', 13)} Ver</button>
+        <button class="btn ghost sm" data-act="estadoCuenta" data-id="${c.id}">${icon('receipt', 13)} Cuenta</button>
+        ${paz ? `<button class="btn ghost sm" data-act="pazSalvo" data-id="${c.id}">${icon('checkCircle', 13)} Paz y salvo</button>` : ''}
+        ${c.telefono ? `<button class="icon-btn plain" title="Enviar por WhatsApp" data-act="waEstadoCuenta" data-id="${c.id}">${icon('whatsapp', 16)}</button>` : ''}
+        <button class="btn soft sm" data-act="offerCredit" data-id="${c.id}">${icon('gift', 13)} Ofrecer crédito</button>
+        <button class="btn sm" data-act="newLoan" data-client="${c.id}">${icon('plus', 13)} Nuevo crédito</button>
+      </div>
+    </div>`;
+  }).join('')}</div>`;
+}
+function viewEstadoClientes() {
+  const est = conteoEstadosClientes();
+  const fin = finN();
+  const cards = [
+    ['aldia', 'Al día', 'green', 'checkCircle', 'Sin cuotas vencidas'],
+    ['porfinalizar', 'Por finalizar', 'amber', 'clock', `${fin} cuota${fin === 1 ? '' : 's'} o menos`],
+    ['finalizado', 'Finalizados', 'violet', 'check', 'Crédito pagado'],
+    ['mora', 'En mora', 'red', 'alert', 'Con cuotas vencidas']
+  ];
+  const chips = [['todos', 'Todos', est.todos], ['aldia', 'Al día', est.aldia], ['porfinalizar', 'Por finalizar', est.porfinalizar], ['finalizado', 'Finalizados', est.finalizado], ['mora', 'En mora', est.mora], ['sincredito', 'Sin crédito', est.sincredito]];
+  return `
+    <div class="ec-grid">
+      ${cards.map(([k, l, col, ic, sub]) => `<button class="ec-card ${filters.estadoClientes === k ? 'active' : ''}" data-act="estadoFiltro" data-v="${k}">
+        <div class="flex between" style="align-items:center"><span class="ec-l">${l}</span><span style="color:var(--${col})">${icon(ic, 15)}</span></div>
+        <div class="ec-n">${est[k]}</div>
+        <div class="tiny muted">${sub}</div>
+      </button>`).join('')}
+    </div>
+    <div class="card mt14">
+      <div class="card-h">
+        <div><h3>Estado de clientes</h3><p>Se calcula con los préstamos y cuotas registrados</p></div>
+        <div class="btn-row">
+          <button class="btn soft sm" data-act="offerCredit">${icon('gift', 14)} Ofrecer crédito</button>
+          <button class="btn ghost sm" data-act="printEstados">${icon('print', 14)} Imprimir</button>
+        </div>
+      </div>
+      <div class="flex between gap10 wrap" style="margin-bottom:12px">
+        <div class="chips" id="estadoChips">
+          ${chips.map(([k, l, n]) => `<button class="chip ${filters.estadoClientes === k ? 'active' : ''}" data-act="estadoFiltro" data-v="${k}">${l}<span class="n">${n}</span></button>`).join('')}
+        </div>
+        <div class="search-box">${icon('search', 16)}<input type="search" id="estadoSearch" placeholder="Buscar cliente…" value="${esc(filters.estadoQ)}" data-search="estado"></div>
+      </div>
+      <div class="flex between gap10 wrap" style="margin-bottom:12px">
+        <div class="tiny muted">«Por finalizar» = préstamo activo con <b>${fin}</b> cuota${fin === 1 ? '' : 's'} o menos por pagar.</div>
+        <label class="tiny muted flex gap6" style="align-items:center">Cuotas para «por finalizar»
+          <input type="number" min="1" max="24" step="1" value="${fin}" data-set="finN" style="width:64px;padding:4px 7px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink)">
+        </label>
+      </div>
+      <div id="estadoList">${estadoClientesLista()}</div>
+    </div>`;
+}
 function copiasLista(limit = 8) {
   const list = S.copias.slice(0, limit);
   if (!list.length) return emptyState('database', 'Sin copias internas', 'Se creará una automáticamente cada día y antes de operaciones delicadas.');
@@ -2223,6 +2421,15 @@ function viewAjustes() {
           </div>
           <div class="set-row"><div class="set-info"><b>Probar notificación</b><span>Envía una prueba para confirmar que funciona.</span></div><button class="btn ghost sm" data-act="testNotif">${icon('bell', 14)} Enviar prueba</button></div>
           <p class="tiny muted mt10">Los avisos se muestran mientras la app está abierta o instalada. No hay servidor que envíe mensajes con la app cerrada.</p>
+        </div>
+        <div class="set-card">
+          <h3>${icon('gift', 17)} Créditos y renovaciones</h3>
+          <p class="desc">Define cuándo un cliente se considera «por finalizar» para ofrecerle un nuevo crédito.</p>
+          <div class="set-row">
+            <div class="set-info"><b>Cuotas para «por finalizar»</b><span>Un préstamo activo con esa cantidad de cuotas o menos aparece como por finalizar.</span></div>
+            <input type="number" min="1" max="24" step="1" value="${finN()}" data-set="finN" style="width:76px;padding:7px 9px;border:1px solid var(--line);border-radius:9px;background:var(--surface);color:var(--ink)">
+          </div>
+          <p class="tiny muted mt10">También puedes cambiarlo desde Reportes → Estado de clientes.</p>
         </div>
         <div class="set-card">
           <h3>${icon('whatsapp', 17)} Mensajes de WhatsApp</h3>
@@ -2365,11 +2572,13 @@ function loanDetailHTML(loan) {
 function clientDetailHTML(c) {
   const loans = prestamosDeCliente(c.id).sort((a, b) => String(b.creado).localeCompare(String(a.creado)));
   const saldo = round2(loans.reduce((a, p) => a + loanTotals(p).saldo, 0));
+  const est = clienteEstado(c);
+  const puedeOferta = ['aldia', 'porfinalizar', 'finalizado'].includes(est);
   return `
     <div class="modal-head">
       <div style="display:flex;gap:12px;align-items:center;min-width:0">
         ${avatar(c.nombre, 'lg')}
-        <div style="min-width:0"><h2 class="ellipsis">${esc(c.nombre)}</h2><p>${c.telefono ? esc(c.telefono) : 'Sin teléfono'}${c.direccion ? ' · ' + esc(c.direccion) : ''}</p></div>
+        <div style="min-width:0"><div class="flex gap6 wrap" style="align-items:center"><h2 class="ellipsis">${esc(c.nombre)}</h2>${clienteEstadoBadge(est)}</div><p>${c.telefono ? esc(c.telefono) : 'Sin teléfono'}${c.direccion ? ' · ' + esc(c.direccion) : ''}</p></div>
       </div>
       <button class="modal-x" data-act="close">${icon('x', 16)}</button>
     </div>
@@ -2380,11 +2589,15 @@ function clientDetailHTML(c) {
         <div class="detail-kpi"><span>Por cobrar</span><b class="${saldo ? 'amber' : 'green'}">${fmtMoney(saldo)}</b></div>
       </div>
       <div class="btn-row">
-        <button class="btn" data-act="newLoan" data-client="${c.id}">${icon('plus', 15)} Crear préstamo</button>
+        <button class="btn" data-act="newLoan" data-client="${c.id}">${icon('plus', 15)} Nuevo crédito</button>
         ${c.telefono ? `<button class="btn wa" data-act="waClient" data-id="${c.id}">${icon('whatsapp', 15)} WhatsApp</button>` : ''}
+        ${puedeOferta ? `<button class="btn soft" data-act="offerCredit" data-id="${c.id}">${icon('gift', 15)} Ofrecer crédito</button>` : ''}
+        <button class="btn ghost" data-act="estadoCuenta" data-id="${c.id}">${icon('receipt', 15)} Estado de cuenta</button>
+        ${saldo <= 0.005 ? `<button class="btn ghost" data-act="pazSalvo" data-id="${c.id}">${icon('checkCircle', 15)} Paz y salvo</button>` : ''}
         <button class="btn ghost" data-act="editClient" data-id="${c.id}">${icon('edit', 15)} Editar</button>
         <button class="btn danger-soft" data-act="delClient" data-id="${c.id}">${icon('trash', 15)} Eliminar</button>
       </div>
+      ${c.oferta && c.oferta.fecha ? `<div class="card mt14" style="background:var(--surface-2);box-shadow:none"><div class="flex between gap10 wrap"><div><div class="field-label">Última oferta de crédito</div><p class="small mt6">${c.oferta.monto > 0 ? fmtMoney(c.oferta.monto) + ' · ' : ''}${fmtDateTime(c.oferta.fecha)}</p></div><span class="badge violet no-dot">${c.nOf || 1} oferta${(c.nOf || 1) === 1 ? '' : 's'} enviada${(c.nOf || 1) === 1 ? '' : 's'}</span></div></div>` : ''}
       ${c.notas ? `<div class="card mt14" style="background:var(--surface-2);box-shadow:none"><div class="field-label">Notas y observaciones</div><p class="small mt6" style="white-space:pre-wrap">${esc(c.notas)}</p></div>` : ''}
       <div class="section-title" style="margin:18px 0 9px"><div><h2 style="font-size:14px">Préstamos del cliente</h2><p>${loans.length} registrado${loans.length === 1 ? '' : 's'}</p></div></div>
       ${loans.length ? `<div class="list">${loans.map(p => {
@@ -2803,6 +3016,226 @@ function openApproval(loanId) {
         if (box) box.innerHTML = `<p class="small red">No se pudo generar la imagen de aprobación.</p>`;
       }
     } });
+}
+
+/* ---------------- Estado de cuenta, paz y salvo y ofertas ---------------- */
+function estadoCuentaTexto(c) {
+  const r = resumenCliente(c);
+  const neg = S.config.negocio || 'Préstamos y Cobros';
+  const out = [`Hola ${c.nombre}, le comparto su estado de cuenta con ${neg} al ${fmtDate(todayISO())}:`, ''];
+  if (!r.loans.length) {
+    out.push('• Aún no tiene préstamos registrados.');
+  } else {
+    r.loans.forEach(p => {
+      const t = loanTotals(p);
+      out.push(`• ${p.codigo}: prestado ${fmtMoney(p.monto)} · pagado ${fmtMoney(t.pagado)} · saldo ${fmtMoney(t.saldo)}`);
+    });
+    out.push('');
+    out.push(`Total prestado: ${fmtMoney(r.prestado)}`);
+    out.push(`Total pagado: ${fmtMoney(r.pagado)}`);
+    out.push(`Saldo pendiente: ${fmtMoney(r.saldo)}`);
+    if (r.mora > 0) out.push(`Mora pendiente: ${fmtMoney(r.mora)}`);
+    if (r.prox) out.push(`Próximo pago: ${fmtDate(r.prox.fecha)} por ${fmtMoney(round2(r.prox.valor - r.prox.pagado))}`);
+  }
+  out.push('', 'Gracias por su confianza.');
+  if (S.config.telefono) out.push(`Contacto: ${S.config.telefono}`);
+  return out.join('\n');
+}
+function pazSalvoTexto(c) {
+  const r = resumenCliente(c);
+  const neg = S.config.negocio || 'Préstamos y Cobros';
+  const out = [`Hola ${c.nombre},`, ''];
+  out.push(`Le confirmo que a la fecha ${fmtDate(todayISO())} se encuentra PAZ Y SALVO con ${neg}.`);
+  if (r.loans.length) out.push(`Sus ${r.loans.length} préstamo${r.loans.length === 1 ? '' : 's'} registrado${r.loans.length === 1 ? '' : 's'} ${r.loans.length === 1 ? 'fue cancelado' : 'fueron cancelados'} en su totalidad (${fmtMoney(r.pagado)}).`);
+  else out.push('No tiene obligaciones pendientes registradas.');
+  out.push('', 'No existe saldo pendiente ni mora a su cargo. Gracias por su cumplimiento.');
+  if (S.config.telefono) out.push('', `Contacto: ${S.config.telefono}`);
+  return out.join('\n');
+}
+function waEstadoCuentaNow(id) {
+  const c = clienteDe(id);
+  if (!c) return;
+  if (!digits(c.telefono)) { toast('Agrega un teléfono al cliente para enviar WhatsApp.', 'warn'); openClientForm(id); return; }
+  window.open(`https://wa.me/${waNumber(c.telefono)}?text=${encodeURIComponent(estadoCuentaTexto(c))}`, '_blank', 'noopener');
+}
+function waPazSalvoNow(id) {
+  const c = clienteDe(id);
+  if (!c) return;
+  if (!digits(c.telefono)) { toast('Agrega un teléfono al cliente para enviar WhatsApp.', 'warn'); openClientForm(id); return; }
+  window.open(`https://wa.me/${waNumber(c.telefono)}?text=${encodeURIComponent(pazSalvoTexto(c))}`, '_blank', 'noopener');
+}
+function openEstadoCuenta(id) {
+  const c = clienteDe(id);
+  if (!c) return;
+  const r = resumenCliente(c);
+  openModal(`
+    <div class="modal-head"><div><h2>Estado de cuenta</h2><p>${esc(c.nombre)} · ${fmtDate(todayISO())}</p></div><button class="modal-x" data-act="close">${icon('x', 16)}</button></div>
+    <div class="modal-body">
+      <div class="image-preview" id="cuentaPreview"><div class="loader"></div></div>
+      <div class="detail-kpis mt14" style="grid-template-columns:repeat(4,1fr)">
+        <div class="detail-kpi"><span>Prestado</span><b>${fmtMoney(r.prestado)}</b></div>
+        <div class="detail-kpi"><span>Pagado</span><b class="green">${fmtMoney(r.pagado)}</b></div>
+        <div class="detail-kpi"><span>Saldo</span><b class="${r.saldo > 0 ? 'amber' : 'green'}">${fmtMoney(r.saldo)}</b></div>
+        <div class="detail-kpi"><span>Mora</span><b class="${r.mora > 0 ? 'red' : 'green'}">${fmtMoney(r.mora)}</b></div>
+      </div>
+      <p class="tiny muted mt10">La imagen incluye el resumen de todos sus préstamos. Puedes enviarla por WhatsApp, descargarla o imprimirla.</p>
+    </div>
+    <div class="modal-foot">
+      <button class="btn ghost" data-act="downloadCuenta" data-id="${c.id}">${icon('download', 16)} Descargar</button>
+      <button class="btn ghost" data-act="printCuenta" data-id="${c.id}">${icon('print', 16)} Imprimir</button>
+      <button class="btn" data-act="shareCuenta" data-id="${c.id}">${icon('share', 16)} Compartir imagen</button>
+      <button class="btn wa" data-act="waCuenta" data-id="${c.id}">${icon('whatsapp', 16)} WhatsApp</button>
+    </div>
+  `, { size: 'wide', onOpen: async () => {
+      try {
+        const blob = await estadoCuentaBlob(c);
+        const url = URL.createObjectURL(blob);
+        modalUrls.push(url);
+        window._cuentaImage = { blob, filename: `estado-cuenta-${c.id.slice(0, 6)}.png`, text: estadoCuentaTexto(c) };
+        const box = $('#cuentaPreview');
+        if (box) box.innerHTML = `<img src="${url}" alt="Estado de cuenta">`;
+      } catch (e) {
+        console.error(e);
+        const box = $('#cuentaPreview');
+        if (box) box.innerHTML = `<p class="small red">No se pudo generar la imagen.</p>`;
+      }
+    } });
+}
+function openPazSalvo(id) {
+  const c = clienteDe(id);
+  if (!c) return;
+  const r = resumenCliente(c);
+  if (r.saldo > 0.005 || r.mora > 0.005) { toast('El cliente todavía tiene saldo o mora pendiente. No se puede emitir paz y salvo.', 'warn'); return; }
+  openModal(`
+    <div class="modal-head"><div><h2>Paz y salvo</h2><p>${esc(c.nombre)} · ${fmtDate(todayISO())}</p></div><button class="modal-x" data-act="close">${icon('x', 16)}</button></div>
+    <div class="modal-body">
+      <div class="image-preview" id="pazPreview"><div class="loader"></div></div>
+      <p class="tiny muted mt10">Certifica que el cliente no tiene saldos pendientes. Ideal para enviar cuando termina de pagar su crédito.</p>
+    </div>
+    <div class="modal-foot">
+      <button class="btn ghost" data-act="downloadPaz" data-id="${c.id}">${icon('download', 16)} Descargar</button>
+      <button class="btn ghost" data-act="printPaz" data-id="${c.id}">${icon('print', 16)} Imprimir</button>
+      <button class="btn" data-act="sharePaz" data-id="${c.id}">${icon('share', 16)} Compartir imagen</button>
+      <button class="btn wa" data-act="waPaz" data-id="${c.id}">${icon('whatsapp', 16)} WhatsApp</button>
+    </div>
+  `, { size: 'wide', onOpen: async () => {
+      try {
+        const blob = await pazSalvoBlob(c);
+        const url = URL.createObjectURL(blob);
+        modalUrls.push(url);
+        window._pazImage = { blob, filename: `paz-y-salvo-${c.id.slice(0, 6)}.png`, text: pazSalvoTexto(c) };
+        const box = $('#pazPreview');
+        if (box) box.innerHTML = `<img src="${url}" alt="Paz y salvo">`;
+      } catch (e) {
+        console.error(e);
+        const box = $('#pazPreview');
+        if (box) box.innerHTML = `<p class="small red">No se pudo generar la imagen.</p>`;
+      }
+    } });
+}
+function ofertaSugerida(c) {
+  const ult = ultimoPrestamoCliente(c);
+  return ult ? round2(ult.monto) : 0;
+}
+function ofertaTexto(c, monto) {
+  const neg = S.config.negocio || 'Préstamos y Cobros';
+  const primer = String(c.nombre || '').split(' ')[0];
+  return `Hola ${primer} 👋, le saluda ${neg}. Tenemos un crédito disponible para usted${monto > 0 ? ' por ' + fmtMoney(monto) : ''}. Puede solicitarlo cuando quiera y con gusto le explico las condiciones. ¡Gracias por su confianza!`;
+}
+function registrarOferta(c, monto, mensaje) {
+  c.nOf = Math.max(0, Math.round(Number(c.nOf) || 0)) + 1;
+  c.oferta = { fecha: nowISO(), monto: round2(Number(monto) || 0), mensaje: String(mensaje || '') };
+  save();
+}
+function openOfferCredit(clientId) {
+  const elegibles = clientesParaOferta();
+  if (!elegibles.length) { toast('Todavía no hay clientes al día, por finalizar o finalizados para ofrecer crédito.', 'warn'); return; }
+  const first = (clientId && clienteDe(clientId)) || elegibles[0];
+  const options = elegibles.slice();
+  if (!options.some(x => x.id === first.id)) options.unshift(first);
+  const monto = ofertaSugerida(first);
+  openModal(`
+    <div class="modal-head"><div><h2>Ofrecer crédito</h2><p>Mensaje e imagen listos para enviar</p></div><button class="modal-x" data-act="close">${icon('x', 16)}</button></div>
+    <div class="modal-body">
+      <div class="grid2 form-grid-mobile">
+        <div class="field"><label>Cliente</label><select id="offerClient">${options.map(x => `<option value="${x.id}" ${x.id === first.id ? 'selected' : ''}>${esc(x.nombre)} · ${ESTADOS_CLIENTE[clienteEstado(x)].label}</option>`).join('')}</select></div>
+        <div class="field"><label>Monto disponible (opcional)</label><input type="number" id="offerMonto" min="0" step="0.01" value="${monto || ''}" placeholder="Ej. 500000"><span class="hint">Se sugiere el monto de su último préstamo.</span></div>
+      </div>
+      <div class="field mt14"><label>Mensaje para el cliente</label><textarea id="offerMsg" rows="4" maxlength="420">${esc(ofertaTexto(first, monto))}</textarea></div>
+      <div class="flex between gap10 wrap mt10">
+        <span class="tiny muted" id="offerLast">${first.oferta && first.oferta.fecha ? 'Última oferta: ' + fmtDateTime(first.oferta.fecha) + ' · ' + (first.nOf || 1) + ' enviada(s)' : 'Aún no le has enviado una oferta.'}</span>
+        <button class="btn ghost sm" data-act="refreshOffer">${icon('refresh', 14)} Actualizar vista previa</button>
+      </div>
+      <div class="image-preview mt14" id="offerPreview"><div class="loader"></div></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn ghost" data-act="saveOffer">${icon('check', 16)} Solo registrar</button>
+      <button class="btn ghost" data-act="downloadOffer">${icon('download', 16)} Descargar</button>
+      <button class="btn" data-act="shareOffer">${icon('share', 16)} Compartir imagen</button>
+      <button class="btn wa" data-act="sendOffer">${icon('whatsapp', 16)} Enviar por WhatsApp</button>
+    </div>
+  `, { size: 'wide', onOpen: async () => { await renderOfferPreview(); } });
+}
+function offerFormData() {
+  const sel = $('#offerClient');
+  const c = sel ? clienteDe(sel.value) : null;
+  const monto = round2(Number($('#offerMonto') ? $('#offerMonto').value : 0) || 0);
+  const msg = $('#offerMsg') ? String($('#offerMsg').value || '') : '';
+  return { c, monto, msg };
+}
+async function renderOfferPreview() {
+  const { c, monto, msg } = offerFormData();
+  if (!c) return;
+  const box = $('#offerPreview');
+  try {
+    const blob = await ofertaBlob(c, monto, msg);
+    const url = URL.createObjectURL(blob);
+    modalUrls.push(url);
+    window._offerImage = { blob, filename: `oferta-${c.id.slice(0, 6)}.png`, text: msg };
+    if (box) box.innerHTML = `<img src="${url}" alt="Crédito disponible">`;
+  } catch (e) {
+    console.error(e);
+    if (box) box.innerHTML = `<p class="small red">No se pudo generar la imagen de la oferta.</p>`;
+  }
+}
+function offerLastText(c) {
+  return c.oferta && c.oferta.fecha ? 'Última oferta: ' + fmtDateTime(c.oferta.fecha) + ' · ' + (c.nOf || 1) + ' enviada(s)' : 'Aún no le has enviado una oferta.';
+}
+function saveOfferNow() {
+  const { c, monto, msg } = offerFormData();
+  if (!c) return;
+  registrarOferta(c, monto, msg);
+  const last = $('#offerLast');
+  if (last) last.textContent = offerLastText(c);
+  toast('Oferta registrada en el cliente.', 'good');
+  render();
+}
+async function sendOfferNow() {
+  const { c, monto, msg } = offerFormData();
+  if (!c) return;
+  if (!digits(c.telefono)) { toast('Agrega un teléfono al cliente para enviar WhatsApp.', 'warn'); closeAllModals(); openClientForm(c.id); return; }
+  registrarOferta(c, monto, msg);
+  const last = $('#offerLast');
+  if (last) last.textContent = offerLastText(c);
+  window.open(`https://wa.me/${waNumber(c.telefono)}?text=${encodeURIComponent(msg)}`, '_blank', 'noopener');
+  toast('Oferta registrada. Si quieres, adjunta la imagen en WhatsApp.', 'good');
+  render();
+}
+async function shareOfferNow() {
+  const { c, monto, msg } = offerFormData();
+  if (!c) return;
+  const blob = await ofertaBlob(c, monto, msg);
+  registrarOferta(c, monto, msg);
+  const last = $('#offerLast');
+  if (last) last.textContent = offerLastText(c);
+  await shareBlob(blob, `oferta-${c.id.slice(0, 6)}.png`, msg);
+  render();
+}
+async function downloadOfferNow() {
+  const { c, monto, msg } = offerFormData();
+  if (!c) return;
+  const blob = await ofertaBlob(c, monto, msg);
+  downloadBlob(blob, `oferta-${c.id.slice(0, 6)}.png`);
 }
 
 /* ---------------- WhatsApp ---------------- */
@@ -3532,6 +3965,182 @@ async function receiptBlob(loan, pago) {
   cText(ctx, `Generado el ${fmtDatetimeShort()} · Préstamos y Cobros`, W - m, fy + 64, 13, 400, '#94a3b8', 'right', 460);
   return canvasBlob(c);
 }
+/* ---------------- Estado de cuenta del cliente ---------------- */
+async function estadoCuentaBlob(c) {
+  const r = resumenCliente(c);
+  const rows = Math.max(1, r.loans.length);
+  const W = 1080;
+  const H = 760 + rows * 54;
+  const cv = makeCanvas(W, H);
+  const ctx = cv.getContext('2d');
+  ctx.fillStyle = '#f4f7fb';
+  ctx.fillRect(0, 0, W, H);
+  drawImageHeader(ctx, W, 224, 'Estado de cuenta', `${fmtDateLong(todayISO())}`, 'CUENTA');
+  const logo = await getLogo();
+  drawLogo(ctx, logo, 72, 38, 50);
+  const m = 72;
+
+  rr(ctx, m, 262, W - m * 2, 96, 18);
+  ctx.fillStyle = '#fff'; ctx.fill();
+  ctx.strokeStyle = '#e2e8f0'; ctx.lineWidth = 1.5; ctx.stroke();
+  ctx.beginPath(); ctx.arc(m + 48, 310, 31, 0, Math.PI * 2); ctx.fillStyle = accent(); ctx.fill();
+  cText(ctx, initials(c.nombre), m + 48, 311, 23, 800, '#fff', 'center');
+  cText(ctx, c.nombre, m + 96, 293, 26, 700, '#0f172a', 'left', 500);
+  cText(ctx, c.telefono || 'Sin teléfono', m + 96, 325, 17, 400, '#64748b', 'left', 500);
+  cText(ctx, 'ESTADO', W - m - 24, 293, 12, 700, '#64748b', 'right');
+  cText(ctx, ESTADOS_CLIENTE[clienteEstado(c)].label, W - m - 24, 324, 21, 800, '#0f172a', 'right');
+
+  const gap = 18, cardW = (W - m * 2 - gap * 3) / 4;
+  drawInfoCard(ctx, m, 386, cardW, 108, 'Total prestado', fmtMoney(r.prestado));
+  drawInfoCard(ctx, m + cardW + gap, 386, cardW, 108, 'Pagado', fmtMoney(r.pagado), '#059669');
+  drawInfoCard(ctx, m + (cardW + gap) * 2, 386, cardW, 108, 'Saldo pendiente', fmtMoney(r.saldo), r.saldo > 0 ? '#b45309' : '#059669');
+  drawInfoCard(ctx, m + (cardW + gap) * 3, 386, cardW, 108, 'Mora pendiente', fmtMoney(r.mora), r.mora > 0 ? '#dc2626' : '#059669');
+
+  cText(ctx, 'PRÉSTAMOS DEL CLIENTE', m, 538, 17, 800, '#334155');
+  const tableY = 560;
+  rr(ctx, m, tableY, W - m * 2, 44, 8);
+  ctx.fillStyle = shade(accent(), 0.82); ctx.fill();
+  cText(ctx, 'CÓDIGO', m + 22, tableY + 22, 14, 700, '#fff');
+  cText(ctx, 'PRESTADO', W - 560, tableY + 22, 14, 700, '#fff', 'right');
+  cText(ctx, 'PAGADO', W - 400, tableY + 22, 14, 700, '#fff', 'right');
+  cText(ctx, 'SALDO', W - 240, tableY + 22, 14, 700, '#fff', 'right');
+  cText(ctx, 'ESTADO', W - m - 22, tableY + 22, 14, 700, '#fff', 'right');
+  let y = tableY + 44;
+  if (!r.loans.length) {
+    ctx.fillStyle = '#ffffff'; ctx.fillRect(m, y, W - m * 2, 54);
+    cText(ctx, 'Sin préstamos registrados.', m + 22, y + 27, 17, 400, '#64748b');
+  }
+  r.loans.forEach((p, i) => {
+    const t = loanTotals(p);
+    const st = loanStatus(p);
+    ctx.fillStyle = i % 2 === 0 ? '#ffffff' : '#f8fafc';
+    ctx.fillRect(m, y, W - m * 2, 54);
+    ctx.strokeStyle = '#eef2f7'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(m, y + 54); ctx.lineTo(W - m, y + 54); ctx.stroke();
+    cText(ctx, p.codigo, m + 22, y + 27, 18, 700, '#0f172a');
+    cText(ctx, fmtMoney(p.monto), W - 560, y + 27, 18, 600, '#334155', 'right');
+    cText(ctx, fmtMoney(t.pagado), W - 400, y + 27, 18, 600, '#334155', 'right');
+    cText(ctx, fmtMoney(t.saldo), W - 240, y + 27, 18, 700, t.saldo > 0 ? '#b45309' : '#059669', 'right');
+    cText(ctx, st === 'finalizado' ? 'Finalizado' : st === 'atrasado' ? 'Atrasado' : 'Activo', W - m - 22, y + 27, 16, 700, st === 'finalizado' ? '#059669' : st === 'atrasado' ? '#dc2626' : '#2563eb', 'right');
+    y += 54;
+  });
+  ctx.strokeStyle = '#e2e8f0'; ctx.lineWidth = 1.5;
+  ctx.strokeRect(m, tableY, W - m * 2, 44 + rows * 54);
+
+  const fy = H - 132;
+  ctx.strokeStyle = '#e2e8f0';
+  ctx.beginPath(); ctx.moveTo(m, fy); ctx.lineTo(W - m, fy); ctx.stroke();
+  if (r.prox) cText(ctx, `Próximo pago: ${fmtDate(r.prox.fecha)} por ${fmtMoney(round2(r.prox.valor - r.prox.pagado))}`, m, fy + 34, 19, 700, '#0f172a', 'left', W - 400);
+  cText(ctx, 'Documento informativo generado con los datos registrados.', m, fy + 64, 14, 400, '#64748b');
+  if (S.config.telefono) cText(ctx, 'Contacto: ' + S.config.telefono, W - m, fy + 34, 16, 600, '#334155', 'right', 340);
+  cText(ctx, `Generado el ${fmtDatetimeShort()} · Préstamos y Cobros`, W - m, fy + 64, 13, 400, '#94a3b8', 'right', 430);
+  return canvasBlob(cv);
+}
+
+/* ---------------- Paz y salvo ---------------- */
+async function pazSalvoBlob(c) {
+  const r = resumenCliente(c);
+  const W = 1080, H = 1120;
+  const cv = makeCanvas(W, H);
+  const ctx = cv.getContext('2d');
+  ctx.fillStyle = '#f4f7fb';
+  ctx.fillRect(0, 0, W, H);
+  drawImageHeader(ctx, W, 250, 'Paz y salvo', `${fmtDateLong(todayISO())}`, 'PAZ Y SALVO');
+  const logo = await getLogo();
+  drawLogo(ctx, logo, 72, 38, 50);
+  const m = 72;
+
+  rr(ctx, m, 292, W - m * 2, 96, 18);
+  ctx.fillStyle = '#fff'; ctx.fill();
+  ctx.strokeStyle = '#e2e8f0'; ctx.lineWidth = 1.5; ctx.stroke();
+  ctx.beginPath(); ctx.arc(m + 48, 340, 31, 0, Math.PI * 2); ctx.fillStyle = accent(); ctx.fill();
+  cText(ctx, initials(c.nombre), m + 48, 341, 23, 800, '#fff', 'center');
+  cText(ctx, c.nombre, m + 96, 323, 26, 700, '#0f172a', 'left', 520);
+  cText(ctx, c.telefono || 'Sin teléfono', m + 96, 355, 17, 400, '#64748b', 'left', 520);
+  cText(ctx, 'FECHA', W - m - 24, 323, 12, 700, '#64748b', 'right');
+  cText(ctx, fmtDate(todayISO()), W - m - 24, 354, 21, 800, '#0f172a', 'right');
+
+  rr(ctx, m, 418, W - m * 2, 196, 22);
+  ctx.fillStyle = '#ffffff'; ctx.fill();
+  ctx.strokeStyle = rgba('#059669', 0.45); ctx.lineWidth = 2; ctx.stroke();
+  ctx.beginPath(); ctx.arc(m + 96, 516, 46, 0, Math.PI * 2);
+  ctx.fillStyle = rgba('#059669', 0.12); ctx.fill();
+  ctx.strokeStyle = '#059669'; ctx.lineWidth = 4;
+  ctx.beginPath(); ctx.moveTo(m + 76, 516); ctx.lineTo(m + 90, 531); ctx.lineTo(m + 118, 500); ctx.stroke();
+  cText(ctx, 'PAZ Y SALVO', m + 170, 484, 30, 800, '#059669');
+  cText(ctx, 'El cliente no tiene saldos pendientes', m + 170, 522, 21, 600, '#0f172a', 'left', W - m * 2 - 200);
+  cText(ctx, 'Todos los créditos registrados fueron cancelados en su totalidad.', m + 170, 554, 16, 400, '#64748b', 'left', W - m * 2 - 200);
+
+  const gap = 18, cardW = (W - m * 2 - gap * 2) / 3;
+  drawInfoCard(ctx, m, 646, cardW, 108, 'Total prestado', fmtMoney(r.prestado));
+  drawInfoCard(ctx, m + cardW + gap, 646, cardW, 108, 'Total pagado', fmtMoney(r.pagado), '#059669');
+  drawInfoCard(ctx, m + (cardW + gap) * 2, 646, cardW, 108, 'Saldo pendiente', fmtMoney(0), '#059669');
+
+  cText(ctx, 'CERTIFICACIÓN', m, 800, 15, 800, '#334155');
+  cWrap(ctx, `Se certifica que ${c.nombre} no tiene obligaciones pendientes con ${S.config.negocio || 'Préstamos y Cobros'} a la fecha ${fmtDate(todayISO())}. Los ${r.loans.length || 0} préstamo${r.loans.length === 1 ? '' : 's'} registrado${r.loans.length === 1 ? '' : 's'} ${r.loans.length === 1 ? 'fue cancelado' : 'fueron cancelados'} en su totalidad.`, m, 836, W - m * 2, 32, 20, 400, '#334155');
+
+  const sy = 980;
+  ctx.strokeStyle = '#94a3b8'; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.moveTo(m, sy); ctx.lineTo(m + 330, sy); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(W - m - 330, sy); ctx.lineTo(W - m, sy); ctx.stroke();
+  cText(ctx, 'Firma del cliente', m, sy + 26, 15, 600, '#64748b');
+  cText(ctx, S.config.negocio || 'Préstamos y Cobros', W - m, sy + 26, 15, 600, '#64748b', 'right');
+
+  const fy = H - 92;
+  ctx.strokeStyle = '#e2e8f0';
+  ctx.beginPath(); ctx.moveTo(m, fy); ctx.lineTo(W - m, fy); ctx.stroke();
+  if (S.config.telefono) cText(ctx, 'Contacto: ' + S.config.telefono, m, fy + 32, 15, 600, '#334155');
+  cText(ctx, `Generado el ${fmtDatetimeShort()} · Préstamos y Cobros`, W - m, fy + 32, 13, 400, '#94a3b8', 'right', 430);
+  return canvasBlob(cv);
+}
+
+/* ---------------- Oferta de crédito ---------------- */
+async function ofertaBlob(c, monto, mensaje) {
+  const W = 1080, H = 1350;
+  const cv = makeCanvas(W, H);
+  const ctx = cv.getContext('2d');
+  ctx.fillStyle = '#f4f7fb';
+  ctx.fillRect(0, 0, W, H);
+  drawImageHeader(ctx, W, 330, 'Crédito disponible', 'Una nueva oportunidad para crecer', 'OFERTA');
+  const logo = await getLogo();
+  drawLogo(ctx, logo, 72, 38, 50);
+  const m = 72;
+
+  rr(ctx, m, 372, W - m * 2, 96, 18);
+  ctx.fillStyle = '#fff'; ctx.fill();
+  ctx.strokeStyle = '#e2e8f0'; ctx.lineWidth = 1.5; ctx.stroke();
+  ctx.beginPath(); ctx.arc(m + 48, 420, 31, 0, Math.PI * 2); ctx.fillStyle = accent(); ctx.fill();
+  cText(ctx, initials(c.nombre), m + 48, 421, 23, 800, '#fff', 'center');
+  cText(ctx, c.nombre, m + 96, 403, 26, 700, '#0f172a', 'left', 500);
+  cText(ctx, c.telefono || 'Cliente preferencial', m + 96, 435, 17, 400, '#64748b', 'left', 500);
+  cText(ctx, 'ESTADO', W - m - 24, 403, 12, 700, '#64748b', 'right');
+  cText(ctx, ESTADOS_CLIENTE[clienteEstado(c)].label, W - m - 24, 434, 20, 800, '#0f172a', 'right', 240);
+
+  rr(ctx, m, 492, W - m * 2, 210, 24);
+  const grad = ctx.createLinearGradient(m, 492, W - m, 702);
+  grad.addColorStop(0, accent());
+  grad.addColorStop(1, shade(accent(), 0.6));
+  ctx.fillStyle = grad; ctx.fill();
+  cText(ctx, 'MONTO DISPONIBLE', m + 38, 546, 16, 800, 'rgba(255,255,255,.8)');
+  cText(ctx, monto > 0 ? fmtMoney(monto) : 'Consultar condiciones', m + 38, 614, monto > 0 ? 62 : 40, 800, '#fff', 'left', W - m * 2 - 76);
+  cText(ctx, 'Sujeto a evaluación y disponibilidad de capital', m + 38, 664, 16, 400, 'rgba(255,255,255,.82)');
+
+  cText(ctx, 'MENSAJE', m, 760, 15, 800, '#334155');
+  rr(ctx, m, 784, W - m * 2, 300, 20);
+  ctx.fillStyle = '#ffffff'; ctx.fill();
+  ctx.strokeStyle = '#e2e8f0'; ctx.lineWidth = 1.5; ctx.stroke();
+  const texto = String(mensaje || '').slice(0, 420);
+  cWrap(ctx, texto, m + 30, 826, W - m * 2 - 60, 34, 21, 400, '#334155');
+
+  const fy = H - 170;
+  ctx.strokeStyle = '#e2e8f0';
+  ctx.beginPath(); ctx.moveTo(m, fy); ctx.lineTo(W - m, fy); ctx.stroke();
+  cText(ctx, S.config.negocio || 'Préstamos y Cobros', m, fy + 40, 24, 800, '#0f172a', 'left', W - 420);
+  cText(ctx, S.config.telefono ? 'WhatsApp / Contacto: ' + S.config.telefono : 'Escríbenos para más información', m, fy + 72, 16, 400, '#64748b', 'left', W - 420);
+  cText(ctx, `Oferta generada el ${fmtDate(todayISO())}`, W - m, fy + 40, 15, 600, '#334155', 'right', 360);
+  cText(ctx, 'Préstamos y Cobros', W - m, fy + 72, 13, 400, '#94a3b8', 'right', 360);
+  return canvasBlob(cv);
+}
 function fmtDatetimeShort() {
   const d = new Date();
   return `${fmtDate(todayISO())} ${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
@@ -3604,6 +4213,109 @@ function printReportNow() {
     </div>
     <div class="print-sign"><div>Firma</div><div>${esc(S.config.negocio || 'Préstamos y Cobros')}</div></div>
     <div class="print-foot">Reporte generado con Préstamos y Cobros · ${fmtDate(todayISO())}</div>`);
+}
+
+/* ---------------- Documentos del cliente ---------------- */
+function clienteDocBlob(tipo, c) {
+  return tipo === 'paz' ? pazSalvoBlob(c) : estadoCuentaBlob(c);
+}
+function clienteDocBase(tipo) { return tipo === 'paz' ? 'paz-y-salvo' : 'estado-cuenta'; }
+async function shareClienteDoc(tipo, id) {
+  const c = clienteDe(id);
+  if (!c) return;
+  const blob = await clienteDocBlob(tipo, c);
+  await shareBlob(blob, `${clienteDocBase(tipo)}-${c.id.slice(0, 6)}.png`, tipo === 'paz' ? pazSalvoTexto(c) : estadoCuentaTexto(c));
+}
+async function downloadClienteDoc(tipo, id) {
+  const c = clienteDe(id);
+  if (!c) return;
+  const blob = await clienteDocBlob(tipo, c);
+  downloadBlob(blob, `${clienteDocBase(tipo)}-${c.id.slice(0, 6)}.png`);
+}
+function estadoCuentaPrintHTML(c) {
+  const r = resumenCliente(c);
+  const rows = r.loans.map(p => {
+    const t = loanTotals(p);
+    const st = loanStatus(p);
+    const label = st === 'finalizado' ? 'Finalizado' : st === 'atrasado' ? 'Atrasado' : 'Activo';
+    return `<tr><td>${esc(p.codigo)}</td><td>${fmtPeriodo(p.frecuencia)}</td><td style="text-align:right">${fmtMoney(p.monto)}</td><td style="text-align:right">${fmtMoney(t.pagado)}</td><td style="text-align:right">${fmtMoney(t.saldo)}</td><td>${label}</td></tr>`;
+  }).join('');
+  return `<div class="print-head">
+      <div style="display:flex;align-items:center;gap:12px"><img src="icon-192.png" alt=""><div><h1>${esc(S.config.negocio || 'Préstamos y Cobros')}</h1><p>${esc(S.config.telefono || '')}<br>Préstamos y Cobros</p></div></div>
+      <div style="text-align:right"><h1>ESTADO DE CUENTA</h1><p>${esc(c.nombre)}<br>${fmtDate(todayISO())}</p></div>
+    </div>
+    <div class="print-meta">
+      <div><b>Cliente:</b> ${esc(c.nombre)}<br><b>Teléfono:</b> ${esc(c.telefono || '—')}<br><b>Dirección:</b> ${esc(c.direccion || '—')}</div>
+      <div style="text-align:right"><b>Estado:</b> ${esc(ESTADOS_CLIENTE[clienteEstado(c)].label)}<br><b>Préstamos:</b> ${r.loans.length}<br><b>Saldo:</b> ${fmtMoney(r.saldo)}</div>
+    </div>
+    <div style="display:flex;gap:10px;margin-bottom:14px">
+      <div style="flex:1;border:1px solid #cbd5e1;border-radius:8px;padding:10px"><span style="font-size:9px;color:#64748b">TOTAL PRESTADO</span><div style="font-size:18px;font-weight:800">${fmtMoney(r.prestado)}</div></div>
+      <div style="flex:1;border:1px solid #cbd5e1;border-radius:8px;padding:10px"><span style="font-size:9px;color:#64748b">TOTAL PAGADO</span><div style="font-size:18px;font-weight:800">${fmtMoney(r.pagado)}</div></div>
+      <div style="flex:1;border:1px solid #cbd5e1;border-radius:8px;padding:10px"><span style="font-size:9px;color:#64748b">SALDO PENDIENTE</span><div style="font-size:18px;font-weight:800">${fmtMoney(r.saldo)}</div></div>
+      <div style="flex:1;border:1px solid #cbd5e1;border-radius:8px;padding:10px"><span style="font-size:9px;color:#64748b">MORA</span><div style="font-size:18px;font-weight:800">${fmtMoney(r.mora)}</div></div>
+    </div>
+    <table><thead><tr><th>Código</th><th>Frecuencia</th><th style="text-align:right">Prestado</th><th style="text-align:right">Pagado</th><th style="text-align:right">Saldo</th><th>Estado</th></tr></thead><tbody>${rows || '<tr><td colspan="6">Sin préstamos registrados.</td></tr>'}</tbody></table>
+    <div class="print-totals">
+      <div><span>Total prestado</span><span>${fmtMoney(r.prestado)}</span></div>
+      <div><span>Total pagado</span><span>${fmtMoney(r.pagado)}</span></div>
+      <div><span>Saldo pendiente</span><span>${fmtMoney(r.saldo)}</span></div>
+      ${r.mora > 0 ? `<div><span>Mora pendiente</span><span>${fmtMoney(r.mora)}</span></div>` : ''}
+      <div><span>Próximo pago</span><span>${r.prox ? fmtDate(r.prox.fecha) + ' · ' + fmtMoney(round2(r.prox.valor - r.prox.pagado)) : '—'}</span></div>
+    </div>
+    <p class="print-note">Documento informativo generado con los datos registrados.</p>
+    <div class="print-sign"><div>Firma del cliente</div><div>${esc(S.config.negocio || 'Préstamos y Cobros')}</div></div>
+    <div class="print-foot">Estado de cuenta generado con Préstamos y Cobros · ${fmtDate(todayISO())}</div>`;
+}
+function printEstadoCuentaNow(id) {
+  const c = clienteDe(id);
+  if (!c) return;
+  printHTML(estadoCuentaPrintHTML(c));
+}
+function pazSalvoPrintHTML(c) {
+  const r = resumenCliente(c);
+  return `<div class="print-head">
+      <div style="display:flex;align-items:center;gap:12px"><img src="icon-192.png" alt=""><div><h1>${esc(S.config.negocio || 'Préstamos y Cobros')}</h1><p>${esc(S.config.telefono || '')}<br>Préstamos y Cobros</p></div></div>
+      <div style="text-align:right"><h1>PAZ Y SALVO</h1><p>${fmtDate(todayISO())}</p></div>
+    </div>
+    <div class="print-meta">
+      <div><b>Cliente:</b> ${esc(c.nombre)}<br><b>Teléfono:</b> ${esc(c.telefono || '—')}<br><b>Dirección:</b> ${esc(c.direccion || '—')}</div>
+      <div style="text-align:right"><b>Total prestado:</b> ${fmtMoney(r.prestado)}<br><b>Total pagado:</b> ${fmtMoney(r.pagado)}<br><b>Saldo:</b> ${fmtMoney(0)}</div>
+    </div>
+    <div style="border:1px solid #86efac;background:#f0fdf4;border-radius:10px;padding:16px 20px;margin-bottom:14px">
+      <div style="font-size:20px;font-weight:800;color:#059669">PAZ Y SALVO</div>
+      <p style="margin:6px 0 0">Se certifica que <b>${esc(c.nombre)}</b> no tiene obligaciones pendientes con ${esc(S.config.negocio || 'Préstamos y Cobros')} a la fecha ${fmtDate(todayISO())}.</p>
+      <p style="margin:6px 0 0">Los ${r.loans.length} préstamo${r.loans.length === 1 ? '' : 's'} registrado${r.loans.length === 1 ? '' : 's'} ${r.loans.length === 1 ? 'fue cancelado' : 'fueron cancelados'} en su totalidad.</p>
+    </div>
+    <div class="print-sign"><div>Firma del cliente</div><div>${esc(S.config.negocio || 'Préstamos y Cobros')}</div></div>
+    <div class="print-foot">Paz y salvo generado con Préstamos y Cobros · ${fmtDate(todayISO())}</div>`;
+}
+function printPazSalvoNow(id) {
+  const c = clienteDe(id);
+  if (!c) return;
+  const r = resumenCliente(c);
+  if (r.saldo > 0.005 || r.mora > 0.005) { toast('El cliente todavía tiene saldo o mora pendiente.', 'warn'); return; }
+  printHTML(pazSalvoPrintHTML(c));
+}
+function printEstadosNow() {
+  const arr = filteredEstadoClientes();
+  const est = conteoEstadosClientes();
+  const label = filters.estadoClientes === 'todos' ? 'Todos los estados' : ESTADOS_CLIENTE[filters.estadoClientes].label;
+  const rows = arr.map(c => {
+    const r = resumenCliente(c);
+    return `<tr><td>${esc(c.nombre)}</td><td>${esc(c.telefono || '—')}</td><td>${esc(ESTADOS_CLIENTE[clienteEstado(c)].label)}</td><td style="text-align:right">${r.loans.length}</td><td style="text-align:right">${fmtMoney(r.saldo)}</td><td style="text-align:right">${fmtMoney(r.mora)}</td><td>${r.prox ? fmtDate(r.prox.fecha) : '—'}</td></tr>`;
+  }).join('');
+  printHTML(`<div class="print-head">
+      <div style="display:flex;align-items:center;gap:12px"><img src="icon-192.png" alt=""><div><h1>${esc(S.config.negocio || 'Préstamos y Cobros')}</h1><p>${esc(S.config.telefono || '')}<br>Préstamos y Cobros</p></div></div>
+      <div style="text-align:right"><h1>ESTADO DE CLIENTES</h1><p>${esc(label)}<br>${fmtDate(todayISO())}</p></div>
+    </div>
+    <div style="display:flex;gap:10px;margin-bottom:14px">
+      <div style="flex:1;border:1px solid #cbd5e1;border-radius:8px;padding:10px"><span style="font-size:9px;color:#64748b">AL DÍA</span><div style="font-size:18px;font-weight:800">${est.aldia}</div></div>
+      <div style="flex:1;border:1px solid #cbd5e1;border-radius:8px;padding:10px"><span style="font-size:9px;color:#64748b">POR FINALIZAR</span><div style="font-size:18px;font-weight:800">${est.porfinalizar}</div></div>
+      <div style="flex:1;border:1px solid #cbd5e1;border-radius:8px;padding:10px"><span style="font-size:9px;color:#64748b">FINALIZADOS</span><div style="font-size:18px;font-weight:800">${est.finalizado}</div></div>
+      <div style="flex:1;border:1px solid #cbd5e1;border-radius:8px;padding:10px"><span style="font-size:9px;color:#64748b">EN MORA</span><div style="font-size:18px;font-weight:800">${est.mora}</div></div>
+    </div>
+    <table><thead><tr><th>Cliente</th><th>Teléfono</th><th>Estado</th><th style="text-align:right">Préstamos</th><th style="text-align:right">Saldo</th><th style="text-align:right">Mora</th><th>Próximo pago</th></tr></thead><tbody>${rows || '<tr><td colspan="7">Sin clientes en este estado.</td></tr>'}</tbody></table>
+    <div class="print-foot">Listado generado con Préstamos y Cobros · ${fmtDate(todayISO())}</div>`);
 }
 
 /* ---------------- PWA e instalación ---------------- */
@@ -3718,6 +4430,26 @@ function initEvents() {
         }
         case 'printReceipt': printReceiptNow(id, el.dataset.pid || ''); break;
         case 'printReport': printReportNow(); break;
+        case 'reportTab': filters.reportTab = el.dataset.v; render(); break;
+        case 'estadoFiltro': filters.estadoClientes = el.dataset.v; render(); break;
+        case 'verEstados': filters.reportTab = 'clientes'; navTo('reportes'); break;
+        case 'estadoCuenta': openEstadoCuenta(id); break;
+        case 'pazSalvo': openPazSalvo(id); break;
+        case 'waEstadoCuenta': case 'waCuenta': waEstadoCuentaNow(id); break;
+        case 'waPaz': waPazSalvoNow(id); break;
+        case 'shareCuenta': await shareClienteDoc('cuenta', id); break;
+        case 'downloadCuenta': await downloadClienteDoc('cuenta', id); break;
+        case 'printCuenta': printEstadoCuentaNow(id); break;
+        case 'sharePaz': await shareClienteDoc('paz', id); break;
+        case 'downloadPaz': await downloadClienteDoc('paz', id); break;
+        case 'printPaz': printPazSalvoNow(id); break;
+        case 'printEstados': printEstadosNow(); break;
+        case 'offerCredit': openOfferCredit(el.dataset.id || ''); break;
+        case 'refreshOffer': await renderOfferPreview(); break;
+        case 'sendOffer': await sendOfferNow(); break;
+        case 'shareOffer': await shareOfferNow(); break;
+        case 'downloadOffer': await downloadOfferNow(); break;
+        case 'saveOffer': saveOfferNow(); break;
         case 'setPass': openSetPass(false); break;
         case 'changePass': openSetPass(true); break;
         case 'removePass': openRemovePass(); break;
@@ -3849,6 +4581,14 @@ function initEvents() {
       if (list) list.innerHTML = prestamosCards();
       const cnt = $('#loansCount');
       if (cnt) cnt.textContent = `${filteredLoans().length} préstamos`;
+    } else if (el.dataset && el.dataset.search === 'estado') {
+      filters.estadoQ = el.value;
+      const list = $('#estadoList');
+      if (list) list.innerHTML = estadoClientesLista();
+    }
+    if (el.id === 'offerMsg' || el.id === 'offerMonto') {
+      clearTimeout(window._offerTimer);
+      window._offerTimer = setTimeout(() => { renderOfferPreview(); }, 450);
     }
     if (el.closest && el.closest('#loanForm')) updateLoanPreview();
   });
@@ -3859,6 +4599,25 @@ function initEvents() {
       const file = el.files && el.files[0];
       if (file) handleImportFile(file);
       el.value = '';
+      return;
+    }
+    if (el.id === 'offerClient') {
+      const c = clienteDe(el.value);
+      if (c) {
+        const monto = ofertaSugerida(c);
+        const mi = $('#offerMonto'); if (mi) mi.value = monto || '';
+        const msg = $('#offerMsg'); if (msg) msg.value = ofertaTexto(c, monto);
+        const last = $('#offerLast'); if (last) last.textContent = offerLastText(c);
+        renderOfferPreview();
+      }
+      return;
+    }
+    if (el.dataset && el.dataset.set === 'finN') {
+      const n = clamp(Math.round(Number(el.value) || 2), 1, 24);
+      S.config.finN = n;
+      save();
+      el.value = n;
+      render();
       return;
     }
     if (el.dataset && el.dataset.set) {
@@ -3954,7 +4713,6 @@ async function boot() {
 }
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
 else boot();
-
 
 </script>
 </body>
